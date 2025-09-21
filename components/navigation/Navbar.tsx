@@ -1,6 +1,6 @@
 'use client'
 
-import { Drawer } from 'antd'
+import { Drawer, Dropdown, MenuProps } from 'antd'
 import Image from 'next/image'
 import Link from 'next/link'
 import React, { useState } from 'react'
@@ -10,6 +10,7 @@ import { HiOutlineShoppingBag, HiOutlineUser } from 'react-icons/hi2'
 import { IoMenuOutline, IoClose } from 'react-icons/io5'
 import { useAuth } from '../../contexts/AuthContext'
 import { useUser } from '../../hooks/useUser'
+import { BiMenuAltLeft, BiMenuAltRight } from 'react-icons/bi'
 
 const navigationItems = [
   {
@@ -52,6 +53,40 @@ export default function Navbar() {
     setDrawerOpen(false);
   };
 
+  const items: MenuProps['items'] = [
+    {
+      key: '1',
+      label: (
+        <Link href="/account" className='flex items-center gap-2'>
+          My Account
+        </Link>
+      ),
+    },
+    ...(isAdmin ? [{
+      key: '2',
+      label: (
+        <Link href="/admin" className='flex items-center gap-2'>
+          Admin
+        </Link>
+      ),
+    }] : []),
+    {
+      key: '3',
+      label: (
+        <p 
+          onClick={() => {
+            logout()
+            closeDrawer()
+          }} 
+          className='flex items-center gap-2 cursor-pointer text-red-600'
+        >
+          Logout
+        </p>
+      ),
+    },
+    
+  ];
+
   return (
     <div className='flex flex-col w-full items-center justify-center bg-white text-sm'>
         <div className='flex flex-row items-center justify-between max-w-[1440px] w-full mx-auto p-4'>
@@ -69,21 +104,27 @@ export default function Navbar() {
 
             <div className='flex flex-row items-center gap-4'>
                 { isAuthenticated && user ? (
-                    <div className="flex items-center gap-3">
-                        <Link href="/account" className='text-gray-700 hover:text-[#3A8726FF] transition-colors duration-200'>
-                            <button className='flex items-center gap-2 p-3 pointer-cursor hover:bg-[#F5FBF4FF] border border-[#3A8726FF] rounded-full font-medium transition-colors duration-200'>
-                                <HiOutlineUser size={20} className="text-[#3A8726FF]"/>
-                                <span className="hidden sm:inline">My Account</span>
-                            </button>
-                        </Link>
-                        {isAdmin && (
-                            <Link href="/admin" className='text-gray-700 hover:text-[#3A8726FF] transition-colors duration-200'>
-                                <button className='flex items-center gap-2 px-3 py-2 bg-[#3A8726FF] text-white rounded-lg hover:bg-[#2d6b1f] font-medium transition-colors duration-200'>
-                                    Admin
-                                </button>
-                            </Link>
-                        )}
+                  <Dropdown menu={{ items }}>
+                    <div className='flex items-center gap-2 font-medium cursor-pointer'>
+                      <p>More</p>
+                      <BiMenuAltLeft/>
                     </div>
+                  </Dropdown>
+                    // <div className="flex items-center gap-3">
+                    //     <Link href="/account" className='text-gray-700 hover:text-[#3A8726FF] transition-colors duration-200'>
+                    //         <button className='flex items-center gap-2 p-3 pointer-cursor hover:bg-[#F5FBF4FF] border border-[#3A8726FF] rounded-full font-medium transition-colors duration-200'>
+                    //             <HiOutlineUser size={20} className="text-[#3A8726FF]"/>
+                    //             <span className="hidden sm:inline">My Account</span>
+                    //         </button>
+                    //     </Link>
+                    //     {isAdmin && (
+                    //         <Link href="/admin" className='text-gray-700 hover:text-[#3A8726FF] transition-colors duration-200'>
+                    //             <button className='flex items-center gap-2 px-3 py-2 bg-[#3A8726FF] text-white rounded-lg hover:bg-[#2d6b1f] font-medium transition-colors duration-200'>
+                    //                 Admin
+                    //             </button>
+                    //         </Link>
+                    //     )}
+                    // </div>
                 ) : (
                     <Link href="/auth/login" className='text-gray-700 hover:text-[#3A8726FF] transition-colors duration-200'>
                         <button className='flex items-center gap-1 p-3 pointer-cursor hover:bg-[#F5FBF4FF] border border-[#3A8726FF] rounded-full font-medium transition-colors duration-200'>

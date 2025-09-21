@@ -1,6 +1,6 @@
 import { API_URL } from '@/config/api.config';
 import { authStorage } from '@/lib/auth';
-import { Field, UserProfile, UserType } from '@/types';
+import { Field, MatchTypes, TeamTypes, UserProfile, UserType } from '@/types';
 
 // Types for API responses
 interface ApiResponse<T = any> {
@@ -247,6 +247,7 @@ interface UserData {
     role?: string;
 }
 
+
 interface FieldData {
     name: string;
     description: string;
@@ -307,6 +308,54 @@ export const paymentAPI = {
     }),
 };
 
+export const teamsAPI = {
+    // Admin functions
+    getAll: () => apiCall('/teams'), // Admin only
+
+    create: (teamData: TeamTypes) => apiCall('/teams/add', {
+        method: 'POST',
+        body: JSON.stringify(teamData),
+    }),
+
+    getUserTeams: (userId: string) => apiCall(`/teams/user/${userId}`),
+
+    getById: (id: string) => apiCall(`/teams/${id}`),
+
+    edit: (id: string, data: Partial<TeamTypes>) => apiCall(`/teams/edit/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+
+    delete: (id: string) => apiCall(`/teams/${id}`, {
+        method: 'DELETE',
+    }),
+};
+
+export const matchesAPI = {
+    // Admin functions
+    getAll: () => apiCall('/matches'), // Admin only
+
+    create: (matchData: MatchTypes) => apiCall('/matches/add', {
+        method: 'POST',
+        body: JSON.stringify(matchData),
+    }),
+
+    getUserMatches: (userId: string) => apiCall(`/matches/user/${userId}`),
+
+    getMatchesByTeamId: (teamId: string) => apiCall(`/matches/team/${teamId}`),
+
+    getById: (id: string) => apiCall(`/matches/${id}`),
+
+    edit: (id: string, data: Partial<MatchTypes>) => apiCall(`/matches/edit/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+
+    delete: (id: string) => apiCall(`/matches/${id}`, {
+        method: 'DELETE',
+    }),
+};
+
 // Blog API functions
 export const blogAPI = {
     getAll: () => apiCall('/blogs'),
@@ -355,6 +404,7 @@ export const userAPI = {
         method: 'DELETE',
     }),
 };
+
 
 // General API object with common HTTP methods
 export const api = {
