@@ -19,11 +19,9 @@ import {
   RiseOutlined
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
-import { League, Match, Team } from '@/types'
+import { League, MatchTypes, TeamTypes, StandingsTeam, FixtureMatch, LeagueStats } from '@/types'
 
 const { TabPane } = Tabs
-
-
 
 export default function LeaguesPage() {
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null)
@@ -130,7 +128,7 @@ export default function LeaguesPage() {
   ]
 
   // Mock standings data for active leagues
-  const mockStandings: { [key: string]: Team[] } = {
+  const mockStandings: { [key: string]: StandingsTeam[] } = {
     'arena-premier': [
       { id: '1', name: 'Kilifi Warriors', played: 15, wins: 12, draws: 2, losses: 1, goalsFor: 35, goalsAgainst: 8, points: 38, form: ['W', 'W', 'D', 'W', 'W'] },
       { id: '2', name: 'Coastal United', played: 15, wins: 11, draws: 3, losses: 1, goalsFor: 32, goalsAgainst: 12, points: 36, form: ['W', 'D', 'W', 'W', 'L'] },
@@ -153,7 +151,7 @@ export default function LeaguesPage() {
   }
 
   // Mock upcoming matches
-  const upcomingMatches: { [key: string]: Match[] } = {
+  const upcomingMatches: { [key: string]: FixtureMatch[] } = {
     'arena-premier': [
       { id: '1', homeTeam: 'Kilifi Warriors', awayTeam: 'Coastal United', date: '2025-08-15', time: '16:00', venue: 'Arena 03 Main Field', status: 'upcoming' },
       { id: '2', homeTeam: 'Malindi FC', awayTeam: 'Ocean Breeze', date: '2025-08-15', time: '18:30', venue: 'Arena 03 Main Field', status: 'upcoming' },
@@ -206,7 +204,7 @@ export default function LeaguesPage() {
     }
   }
 
-  const standingsColumns: ColumnsType<Team> = [
+  const standingsColumns: ColumnsType<StandingsTeam> = [
     {
       title: 'Pos',
       key: 'position',
@@ -222,7 +220,7 @@ export default function LeaguesPage() {
       )
     },
     {
-      title: 'Team',
+      title: 'TeamTypes',
       dataIndex: 'name',
       key: 'name',
       render: (name, record) => (
@@ -323,7 +321,7 @@ export default function LeaguesPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/contact" className="bg-[#3A8726FF] text-white px-8 py-3 rounded-lg font-semibold hover:bg-[#2d6b1f] transition-colors">
-              Register Your Team
+              Register Your TeamTypes
             </Link>
             <Link href="/booking" className="border-2 border-[#3A8726FF] text-[#3A8726FF] px-8 py-3 rounded-lg font-semibold hover:bg-[#3A8726FF] hover:text-white transition-colors">
               Book Training Session
@@ -442,7 +440,7 @@ export default function LeaguesPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/contact" className="bg-white text-[#3A8726FF] px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
-              Register Your Team
+              Register Your TeamTypes
             </Link>
             <Link href="/about" className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-[#3A8726FF] transition-colors">
               Learn More
@@ -458,7 +456,7 @@ export default function LeaguesPage() {
         onCancel={() => setModalVisible(false)}
         footer={[
           <Button key="register" type="primary" style={{ backgroundColor: selectedLeague?.color }}>
-            Register Team
+            Register TeamTypes
           </Button>,
           <Button key="contact" type="default">
             Contact Organizer

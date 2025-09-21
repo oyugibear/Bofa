@@ -52,11 +52,12 @@ export interface UserType {
     phone_number: string;
     date_of_birth: string;
     passwordResetCode?: string;
-    password: string;
-    role: 'Client' | 'Coach' | 'Admin';
+    password?: string;
+    role?: 'Client' | 'Coach' | 'Admin';
     team_id?: string;
     profile_status?: 'Pending' | 'Completed';
-    coaching_notes: Array<{
+    status?: string;
+    coaching_notes?: Array<{
         note: string;
         createdAt: Date;
         postedBy: string;
@@ -70,7 +71,7 @@ export interface UserType {
 export interface Payment {
   _id: string
   services: any[] // Array of services included in the payment
-  booking_id: string // Reference to Booking model
+  booking_id: BookingDetails // Reference to Booking model
   final_amount_invoiced: number // Required final amount
   amount?: number // Alias for amountPaid - commonly used in frontend
   amountPaid?: number // Amount actually paid
@@ -86,7 +87,7 @@ export interface Payment {
   currency?: string // Currency code (e.g., "KES", "USD")
   paymentLink?: string // Link to payment gateway
   receipt_pdf?: string // URL or path to receipt PDF
-  postedBy?: string // Reference to User who created the payment
+  postedBy?: UserProfile // Reference to User who created the payment
   
   // Populated fields when using with Mongoose populate
   booking?: {
@@ -106,30 +107,48 @@ export interface Payment {
   updatedAt: string
 }
 
-export interface Team {
-  id: string
+export interface TeamTypes {
+  _id?: string
   name: string
   logo?: string
-  played: number
-  wins: number
-  draws: number
-  losses: number
-  goalsFor: number
-  goalsAgainst: number
-  points: number
-  form: string[]
+  matches?: MatchTypes[]
+  members?: UserType[]
+  points?: number
+  coach?: UserType
+  captain?: UserType
+  status?: string
+
+  achievements?: [{
+    title: string,
+    description: string,
+    date: Date
+  }],
+
+  postedBy?: string
+  editedBy?: UserType
+
+  // Timestamps from mongoose
+  createdAt?: string
+  updatedAt?: string
 }
 
-export interface Match {
-  id: string
-  homeTeam: string
-  awayTeam: string
+export interface MatchTypes {
+  _id?: string
   date: string
   time: string
+  homeTeam: string | TeamTypes  // Can be ObjectId string or populated Team object
+  awayTeam: string | TeamTypes  // Can be ObjectId string or populated Team object
   venue: string
-  status: 'upcoming' | 'live' | 'finished'
-  homeScore?: number
-  awayScore?: number
+  status?: string  // Changed to match schema default 'inactive'
+  score?: {
+    home: number
+    away: number
+  }
+  postedBy: string | UserType  // Can be ObjectId string or populated User object
+  editedBy?: string | UserType  // Optional, can be ObjectId string or populated User object
+  // Timestamps from mongoose
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface League {
@@ -140,13 +159,48 @@ export interface League {
   status: 'active' | 'upcoming' | 'finished'
   teams: number
   matches: number
+  prize?: string // Keep for backward compatibility
   startDate: string
   endDate: string
   prizePool: number
   registrationFee: number
-  category: 'youth' | 'adult' | 'women' | 'veterans'
-  level: 'amateur' | 'semi-pro' | 'professional'
+  category: string
+  level: string
   color: string
+  isActive?: boolean
+}
+
+// Interface for team standings data
+export interface StandingsTeam {
+  id: string
+  name: string
+  played: number
+  wins: number
+  draws: number
+  losses: number
+  goalsFor: number
+  goalsAgainst: number
+  points: number
+  form: string[] // Array of 'W', 'D', 'L' results
+}
+
+// Interface for fixture/match data
+export interface FixtureMatch {
+  id: string
+  homeTeam: string
+  awayTeam: string
+  date: string
+  time: string
+  venue: string
+  status: 'upcoming' | 'live' | 'finished'
+}
+
+// Interface for league statistics
+export interface LeagueStats {
+  activeLeagues: number
+  registeredTeams: number
+  matchesPlayed: number
+  totalPrizePool: string
 }
 
 export interface Field {

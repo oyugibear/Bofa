@@ -1,3 +1,5 @@
+'use client'
+
 import React from 'react'
 import Link from 'next/link'
 import { 
@@ -15,9 +17,11 @@ import {
   TeamOutlined,
   HeartOutlined
 } from '@ant-design/icons'
+import { useUser } from '../../hooks/useUser'
 
 export default function Footer() {
   const currentYear = new Date().getFullYear()
+  const { isAdmin } = useUser()
 
   return (
     <footer className="bg-gray-900 text-white">
@@ -101,12 +105,14 @@ export default function Footer() {
                   <span>Book a Field</span>
                 </Link>
               </li>
-              <li>
-                <Link href="/admin" className="text-gray-300 hover:text-[#3A8726FF] transition-colors text-sm flex items-center gap-2">
-                  <TeamOutlined className="text-xs" />
-                  <span>Admin Panel</span>
-                </Link>
-              </li>
+              {isAdmin && (
+                <li>
+                  <Link href="/admin" className="text-gray-300 hover:text-[#3A8726FF] transition-colors text-sm flex items-center gap-2">
+                    <TeamOutlined className="text-xs" />
+                    <span>Admin Panel</span>
+                  </Link>
+                </li>
+              )}
               <li>
                 <Link href="/account" className="text-gray-300 hover:text-[#3A8726FF] transition-colors text-sm flex items-center gap-2">
                   <span>My Account</span>

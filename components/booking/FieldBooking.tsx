@@ -42,7 +42,7 @@ interface BookingHistory {
   totalPrice: number
 }
 
-const FieldBooking: React.FC = () => {
+export default function FieldBooking() {
   const { user, isAuthenticated } = useAuth()
   const toast = useToast()
   
@@ -685,4 +685,4 @@ const FieldBooking: React.FC = () => {
   )
 }
 
-export default FieldBooking
+
