@@ -1,285 +1,81 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
-  SettingOutlined,
-  UserOutlined,
-  LockOutlined,
-  BellOutlined,
-  CreditCardOutlined,
-  EnvironmentOutlined,
   SaveOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  CheckCircleOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons'
 import Link from 'next/link'
 import SideMenu from '../../../components/admin/SideMenu'
-
-// Settings Form Components
-const GeneralSettings = () => {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
-      <div className="p-6 border-b border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-          <SettingOutlined className="text-[#3A8726FF]" />
-          General Settings
-        </h3>
-      </div>
-      <div className="p-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Facility Name</label>
-            <input 
-              type="text" 
-              defaultValue="Arena 03 Kilifi"
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Contact Email</label>
-            <input 
-              type="email" 
-              defaultValue="info@arena03kilifi.com"
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-            <input 
-              type="tel" 
-              defaultValue="+254 712 345 678"
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Operating Hours</label>
-            <input 
-              type="text" 
-              defaultValue="6:00 AM - 10:00 PM"
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" 
-            />
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-          <textarea 
-            rows={3}
-            defaultValue="Kilifi Sports Complex, Coast Province, Kenya"
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" 
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const FieldSettings = () => {
-  const fields = [
-    { id: 1, name: 'Main Field', price: 3000, status: 'Active' },
-    { id: 2, name: 'Training Pitch', price: 1500, status: 'Active' },
-    { id: 3, name: 'Indoor Field', price: 2000, status: 'Active' },
-    { id: 4, name: 'Practice Area', price: 1000, status: 'Maintenance' },
-  ]
-
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
-      <div className="p-6 border-b border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-          <EnvironmentOutlined className="text-[#3A8726FF]" />
-          Field Management
-        </h3>
-      </div>
-      <div className="p-6">
-        <div className="space-y-4">
-          {fields.map((field) => (
-            <div key={field.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-4">
-                <div>
-                  <h4 className="font-medium text-gray-900">{field.name}</h4>
-                  <p className="text-sm text-gray-500">KSh {field.price.toLocaleString()}/hour</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  field.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {field.status}
-                </span>
-                <button className="px-3 py-1 text-sm bg-[#3A8726FF] text-white rounded hover:bg-[#2d6b1f]">
-                  Edit
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const PaymentSettings = () => {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
-      <div className="p-6 border-b border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-          <CreditCardOutlined className="text-[#3A8726FF]" />
-          Payment Settings
-        </h3>
-      </div>
-      <div className="p-6 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
-            <select className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent">
-              <option value="KES">Kenyan Shilling (KSh)</option>
-              <option value="USD">US Dollar ($)</option>
-              <option value="EUR">Euro (€)</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tax Rate (%)</label>
-            <input 
-              type="number" 
-              defaultValue="16"
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" 
-            />
-          </div>
-        </div>
-        <div className="space-y-3">
-          <h4 className="font-medium text-gray-900">Payment Methods</h4>
-          <div className="space-y-2">
-            <label className="flex items-center gap-3">
-              <input type="checkbox" defaultChecked className="rounded text-[#3A8726FF]" />
-              <span className="text-gray-700">M-Pesa</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input type="checkbox" defaultChecked className="rounded text-[#3A8726FF]" />
-              <span className="text-gray-700">Credit/Debit Cards</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input type="checkbox" defaultChecked className="rounded text-[#3A8726FF]" />
-              <span className="text-gray-700">Cash</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input type="checkbox" className="rounded text-[#3A8726FF]" />
-              <span className="text-gray-700">Bank Transfer</span>
-            </label>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const NotificationSettings = () => {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
-      <div className="p-6 border-b border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-          <BellOutlined className="text-[#3A8726FF]" />
-          Notification Settings
-        </h3>
-      </div>
-      <div className="p-6 space-y-4">
-        <div className="space-y-3">
-          <h4 className="font-medium text-gray-900">Email Notifications</h4>
-          <div className="space-y-2">
-            <label className="flex items-center gap-3">
-              <input type="checkbox" defaultChecked className="rounded text-[#3A8726FF]" />
-              <span className="text-gray-700">New bookings</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input type="checkbox" defaultChecked className="rounded text-[#3A8726FF]" />
-              <span className="text-gray-700">Payment confirmations</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input type="checkbox" className="rounded text-[#3A8726FF]" />
-              <span className="text-gray-700">Booking cancellations</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input type="checkbox" defaultChecked className="rounded text-[#3A8726FF]" />
-              <span className="text-gray-700">Daily reports</span>
-            </label>
-          </div>
-        </div>
-        <div className="space-y-3">
-          <h4 className="font-medium text-gray-900">SMS Notifications</h4>
-          <div className="space-y-2">
-            <label className="flex items-center gap-3">
-              <input type="checkbox" defaultChecked className="rounded text-[#3A8726FF]" />
-              <span className="text-gray-700">Booking reminders</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input type="checkbox" className="rounded text-[#3A8726FF]" />
-              <span className="text-gray-700">Payment alerts</span>
-            </label>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const SecuritySettings = () => {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
-      <div className="p-6 border-b border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-          <LockOutlined className="text-[#3A8726FF]" />
-          Security Settings
-        </h3>
-      </div>
-      <div className="p-6 space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
-          <input 
-            type="password" 
-            placeholder="Enter current password"
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" 
-          />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
-            <input 
-              type="password" 
-              placeholder="Enter new password"
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
-            <input 
-              type="password" 
-              placeholder="Confirm new password"
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" 
-            />
-          </div>
-        </div>
-        <div className="space-y-3">
-          <h4 className="font-medium text-gray-900">Security Options</h4>
-          <div className="space-y-2">
-            <label className="flex items-center gap-3">
-              <input type="checkbox" defaultChecked className="rounded text-[#3A8726FF]" />
-              <span className="text-gray-700">Enable two-factor authentication</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input type="checkbox" defaultChecked className="rounded text-[#3A8726FF]" />
-              <span className="text-gray-700">Login notifications</span>
-            </label>
-            <label className="flex items-center gap-3">
-              <input type="checkbox" className="rounded text-[#3A8726FF]" />
-              <span className="text-gray-700">Auto-logout after inactivity</span>
-            </label>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+import GeneralSettings from '../../../components/admin/GeneralSettings'
+import FieldSettings from '../../../components/admin/FieldSettings'
+import PaymentSettings from '../../../components/admin/PaymentSettings'
+import NotificationSettings from '../../../components/admin/NotificationSettings'
+import SecuritySettings from '../../../components/admin/SecuritySettings'
+import { adminAPI } from '@/utils/api'
+import { AdminSettings } from '@/types'
 
 // Main Settings Page Component
 export default function SettingsPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [settings, setSettings] = useState<AdminSettings | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [hasChanges, setHasChanges] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // Load settings on component mount
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true)
+      const response = await adminAPI.getSettings()
+      if (response.data) {
+        setSettings(response.data)
+        setHasChanges(false)
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error)
+      showMessage('error', 'Failed to load settings')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSectionSave = (sectionName: string, data: any) => {
+    setHasChanges(true)
+    setLastSaved(new Date())
+    showMessage('success', `${sectionName} updated successfully`)
+  }
+
+  const handleResetSettings = async () => {
+    if (!confirm('Are you sure you want to reset all settings to defaults? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      setSaving(true)
+      await adminAPI.resetSettings()
+      await loadSettings() // Reload settings after reset
+      showMessage('success', 'Settings reset to defaults successfully')
+    } catch (error) {
+      console.error('Error resetting settings:', error)
+      showMessage('error', 'Failed to reset settings')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const showMessage = (type: 'success' | 'error', text: string) => {
+    setMessage({ type, text })
+    setTimeout(() => setMessage(null), 5000) // Clear message after 5 seconds
+  }
 
   return (
     <div className='flex min-h-screen bg-gray-50'>
@@ -306,25 +102,66 @@ export default function SettingsPage() {
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-                <p className="text-gray-600 mt-1">Manage facility settings and preferences</p>
+                <div className="flex items-center gap-4 mt-1">
+                  <p className="text-gray-600">Manage facility settings and preferences</p>
+                  {lastSaved && (
+                    <div className="flex items-center gap-1 text-sm text-gray-500">
+                      <CheckCircleOutlined className="text-green-500" />
+                      Last saved: {lastSaved.toLocaleTimeString()}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex gap-3">
-                <button className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
-                  <ReloadOutlined /> Reset
-                </button>
-                <button className="px-4 py-2 bg-[#3A8726FF] text-white rounded-lg hover:bg-[#2d6b1f] flex items-center gap-2">
-                  <SaveOutlined /> Save Changes
+                <button 
+                  onClick={handleResetSettings}
+                  disabled={saving || loading}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ReloadOutlined className={saving ? 'animate-spin' : ''} /> 
+                  {saving ? 'Resetting...' : 'Reset to Defaults'}
                 </button>
               </div>
             </div>
+
+            {/* Status Message */}
+            {message && (
+              <div className={`p-4 rounded-lg flex items-center gap-2 ${
+                message.type === 'success' 
+                  ? 'bg-green-50 text-green-800 border border-green-200' 
+                  : 'bg-red-50 text-red-800 border border-red-200'
+              }`}>
+                {message.type === 'success' ? (
+                  <CheckCircleOutlined className="text-green-500" />
+                ) : (
+                  <ExclamationCircleOutlined className="text-red-500" />
+                )}
+                {message.text}
+              </div>
+            )}
           </div>
 
           {/* Settings Sections */}
-          <GeneralSettings />
-          <FieldSettings />
-          <PaymentSettings />
-          <NotificationSettings />
-          <SecuritySettings />
+          <GeneralSettings 
+            onSave={(data) => handleSectionSave('General Settings', data)}
+            isLoading={loading}
+          />
+          <FieldSettings 
+            onSave={(data) => handleSectionSave('Field Settings', data)}
+            isLoading={loading}
+          />
+          <PaymentSettings 
+            onSave={(data) => handleSectionSave('Payment Settings', data)}
+            isLoading={loading}
+          />
+          <NotificationSettings 
+            onSave={(data) => handleSectionSave('Notification Settings', data)}
+            isLoading={loading}
+          />
+          <SecuritySettings 
+            onSave={(data) => handleSectionSave('Security Settings', data)}
+            isLoading={loading}
+          />
         </div>
       </div>
     </div>

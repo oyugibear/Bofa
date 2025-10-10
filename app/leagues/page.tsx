@@ -451,13 +451,13 @@ export default function LeaguesPage() {
 
       {/* League Details Modal */}
       <Modal
-        title={selectedLeague?.name}
+        title={selectedLeague?.title}
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
         footer={[
-          <Button key="register" type="primary" style={{ backgroundColor: selectedLeague?.color }}>
-            Register TeamTypes
-          </Button>,
+          // <Button key="register" type="primary" style={{ backgroundColor: selectedLeague?.color }}>
+          //   Register TeamTypes
+          // </Button>,
           <Button key="contact" type="default">
             Contact Organizer
           </Button>

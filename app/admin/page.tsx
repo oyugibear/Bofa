@@ -17,54 +17,13 @@ import { message, Modal as AntModal } from 'antd'
 import SideMenu from '../../components/admin/SideMenu'
 import { useUser, usePermissions, RoleGuard } from '../../hooks/useUser'
 import { withAuth, useAuth } from '../../contexts/AuthContext'
-import { Booking, Payment } from '@/types'
-import { User } from '@/services/users'
+import { BookingDetails, Payment, UserType } from '@/types'
 import { bookingAPI, paymentAPI, userAPI } from '@/utils/api'
 import Stats from '@/components/admin/Stats'
 import Controls from '@/components/admin/Controls'
-
-
-
-// Recent Activities Component
-const RecentActivities = () => {
-  const activities = [
-    { user: 'John Doe', action: 'booked Main Field', time: '2 hours ago', type: 'booking' },
-    { user: 'Jane Smith', action: 'joined Champions League', time: '4 hours ago', type: 'league' },
-    { user: 'Mike Johnson', action: 'completed payment', time: '6 hours ago', type: 'payment' },
-    { user: 'Sarah Wilson', action: 'created new team', time: '1 day ago', type: 'team' },
-  ]
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'booking': return <CalendarOutlined className="text-blue-600" />
-      case 'league': return <TrophyOutlined className="text-orange-600" />
-      case 'payment': return <DollarOutlined className="text-green-600" />
-      case 'team': return <TeamOutlined className="text-purple-600" />
-      default: return <BellOutlined />
-    }
-  }
-
-  return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">Recent Activities</h3>
-      <div className="space-y-3">
-        {activities.map((activity, index) => (
-          <div key={index} className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-            <div className="text-xl">
-              {getActivityIcon(activity.type)}
-            </div>
-            <div className="flex-1">
-              <p className="text-gray-900 text-sm">
-                <span className="font-medium">{activity.user}</span> {activity.action}
-              </p>
-              <p className="text-gray-500 text-xs">{activity.time}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+import TodayOverview from '@/components/admin/TodayOverview'
+import AlertsCenter from '@/components/admin/AlertsCenter'
+import RecentActivities from '@/components/admin/RecentActivities'
 
 // Modal Component
 const Modal = ({ isOpen, onClose, type, children }: any) => {
@@ -97,9 +56,9 @@ export default function AdminPage() {
     const { user, fullName, isAdmin } = useUser()
     const { logout } = useAuth()
 
-    const [bookings, setBookings] = useState<Booking[]>([])
+    const [bookings, setBookings] = useState<BookingDetails[]>([])
     const [payments, setPayments] = useState<Payment[]>([])
-    const [users, setUsers] = useState<User[]>([])
+    const [users, setUsers] = useState<UserType[]>([])
 
     useEffect(() => {
         // Fetch bookings, payments, and users data
@@ -179,8 +138,15 @@ export default function AdminPage() {
             </div>
 
             <Stats data={{ bookings, payments, users }} />
+            
+            {/* Today's Overview and Alerts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <TodayOverview data={{ bookings, payments, users }} />
+              <AlertsCenter data={{ bookings, payments, users }} />
+            </div>
+            
             <Controls setShowModal={setShowModal} setModalType={setModalType} />
-            <RecentActivities />
+            <RecentActivities data={{ bookings, payments, users }} />
             </div>
         </div>
 

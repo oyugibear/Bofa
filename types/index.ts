@@ -15,12 +15,18 @@ export interface BookingDetails {
   field: Field
   date_requested: string
   time: string
-  duration: number
+  duration: string
+  team_name?: string
+  client?: UserType
+  total_price: number
   amount: number
-  status: 'confirmed' | 'pending' | 'cancelled' | 'completed'
   payment_status: 'paid' | 'pending' | 'failed'
-  booking_type: 'training' | 'match' | 'tournament' | 'casual'
-  client?: UserProfile
+  paymentInfo?: Payment
+  paymentLink?: string
+  status: 'confirmed' | 'pending' | 'cancelled' | 'completed'
+  postedBy?: UserType
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Activity {
@@ -53,7 +59,7 @@ export interface UserType {
     date_of_birth: string;
     passwordResetCode?: string;
     password?: string;
-    role?: 'Client' | 'Coach' | 'Admin';
+    role?: string;
     team_id?: string;
     profile_status?: 'Pending' | 'Completed';
     status?: string;
@@ -152,13 +158,14 @@ export interface MatchTypes {
 }
 
 export interface League {
-  id: string
-  name: string
+  _id?: string
+  title: string
   description: string
   season: string
   status: 'active' | 'upcoming' | 'finished'
-  teams: number
-  matches: number
+  numberOfTeams: number
+  teams: TeamTypes[] // Array of Team objects or IDs
+  matches: MatchTypes[] // Array of Match objects or IDs
   prize?: string // Keep for backward compatibility
   startDate: string
   endDate: string
@@ -166,8 +173,22 @@ export interface League {
   registrationFee: number
   category: string
   level: string
-  color: string
+  schedule?: {
+    matchId: MatchTypes | string // Can be ObjectId string or populated Match object
+    date: string
+    time: string
+  }
+  standings?: [{
+    teamId: TeamTypes | string // Can be ObjectId string or populated Team object
+    points: number
+    matchesPlayed: number
+    wins: number
+    losses: number
+    draws: number
+    position: number
+  }]
   isActive?: boolean
+  postedBy?: UserType | string // Can be ObjectId string or populated User object
 }
 
 // Interface for team standings data
@@ -274,5 +295,81 @@ export interface Field {
   capacity?: number
   features?: string[]
   priceMultiplier?: number
+}
+
+// Admin Settings Types
+export interface GeneralSettings {
+  facilityName: string
+  contactEmail: string
+  phoneNumber: string
+  operatingHours: string
+  address: string
+  timezone?: string
+  language?: string
+}
+
+export interface FieldSettingsData {
+  defaultBookingDuration: number
+  maxAdvanceBookingDays: number
+  minAdvanceBookingHours: number
+  allowOverbooking: boolean
+  maintenanceMode: boolean
+  defaultFieldStatus: 'active' | 'maintenance' | 'inactive'
+}
+
+export interface PaymentMethodsSettings {
+  mpesa: boolean
+  cards: boolean
+  cash: boolean
+  bankTransfer: boolean
+}
+
+export interface PaymentSettingsData {
+  currency: string
+  taxRate: number
+  paymentMethods: PaymentMethodsSettings
+  autoPaymentConfirmation: boolean
+  paymentTimeout: number
+}
+
+export interface EmailNotificationSettings {
+  newBookings: boolean
+  paymentConfirmations: boolean
+  bookingCancellations: boolean
+  dailyReports: boolean
+}
+
+export interface SmsNotificationSettings {
+  bookingReminders: boolean
+  paymentAlerts: boolean
+}
+
+export interface NotificationSettingsData {
+  emailNotifications: EmailNotificationSettings
+  smsNotifications: SmsNotificationSettings
+  notificationEmail: string
+}
+
+export interface SecuritySettingsData {
+  twoFactorAuth: boolean
+  loginNotifications: boolean
+  autoLogout: boolean
+  autoLogoutMinutes: number
+  passwordMinLength: number
+  requirePasswordChange: boolean
+}
+
+export interface AdminSettings {
+  _id?: string
+  generalSettings: GeneralSettings
+  fieldSettings: FieldSettingsData
+  paymentSettings: PaymentSettingsData
+  notificationSettings: NotificationSettingsData
+  securitySettings: SecuritySettingsData
+  isActive?: boolean
+  version?: string
+  lastUpdatedBy?: string
+  createdAt?: string
+  updatedAt?: string
 }
 

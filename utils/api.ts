@@ -1,6 +1,6 @@
 import { API_URL } from '@/config/api.config';
-import { authStorage } from '@/lib/auth';
-import { Field, MatchTypes, TeamTypes, UserProfile, UserType } from '@/types';
+import { authStorage, User } from '@/lib/auth';
+import { Field, League, MatchTypes, TeamTypes, UserProfile, UserType } from '@/types';
 
 // Types for API responses
 interface ApiResponse<T = any> {
@@ -19,7 +19,7 @@ interface BookingData {
     teamName?: string;
     client: string;
     total_price: number;
-    statu?: string;
+    status?: string;
 }
 
 const getAuthHeaders = (): Record<string, string> => {
@@ -110,7 +110,7 @@ export const bookingAPI = {
     getById: (id: string) => apiCall(`/bookings/${id}`),
     
     update: (id: string, data: Partial<BookingData>) => {
-        return apiCall(`/bookings/edit/${id}`, {
+        return apiCall(`/bookings/${id}`, {
             method: 'PUT',
             body: JSON.stringify(data),
         });
@@ -331,6 +331,43 @@ export const teamsAPI = {
     }),
 };
 
+export const leaguesAPI = {
+    // Admin functions
+    getAll: () => apiCall('/leagues'), // Admin only
+
+    create: (leagueData: League) => apiCall('/leagues/add', {
+        method: 'POST',
+        body: JSON.stringify(leagueData),
+    }),
+
+    getUserLeagues: (userId: string) => apiCall(`/leagues/user/${userId}`),
+
+    getById: (id: string) => apiCall(`/leagues/${id}`),
+
+    edit: (id: string, data: Partial<League>) => apiCall(`/leagues/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+
+    delete: (id: string) => apiCall(`/leagues/${id}`, {
+        method: 'DELETE',
+    }),
+
+    generateMatches: (data: { leagueId: string; numberOfMatches: number; startDate?: string; venue: string; postedBy?: string }) => apiCall('/leagues/generateMatches', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+
+    // Standings functions
+    initializeStandings: (leagueId: string) => apiCall(`/leagues/standings/initialize/${leagueId}`, {
+        method: 'POST',
+    }),
+
+    recalculateStandings: (leagueId: string) => apiCall(`/leagues/standings/recalculate/${leagueId}`, {
+        method: 'PUT',
+    }),
+};
+
 export const matchesAPI = {
     // Admin functions
     getAll: () => apiCall('/matches'), // Admin only
@@ -405,6 +442,26 @@ export const userAPI = {
     }),
 };
 
+export const standingsAPI = {
+    // Get standings for a league
+    getByLeague: (leagueId: string) => apiCall(`/standings/${leagueId}`),
+
+    // Initialize standings for a league
+    initialize: (leagueId: string) => apiCall(`/standings/initialize/${leagueId}`, {
+        method: 'POST',
+    }),
+
+    // Recalculate all standings for a league
+    recalculate: (leagueId: string) => apiCall(`/standings/recalculate/${leagueId}`, {
+        method: 'PUT',
+    }),
+
+    // Update standings for a specific match (internal use)
+    updateForMatch: (matchId: string, oldScore?: any) => apiCall(`/standings/match/${matchId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ oldScore }),
+    }),
+};
 
 // General API object with common HTTP methods
 export const api = {
@@ -421,4 +478,61 @@ export const api = {
     }),
     
     delete: (endpoint: string) => apiCall(endpoint, { method: 'DELETE' }),
+};
+
+// Admin Settings API functions
+export const adminAPI = {
+    // Get all settings
+    getSettings: () => apiCall('/admin/settings'),
+    
+    // Update all settings
+    updateSettings: (data: any) => apiCall('/admin/settings', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+    
+    // General Settings
+    getGeneralSettings: () => apiCall('/admin/settings/general'),
+    updateGeneralSettings: (data: any) => apiCall('/admin/settings/general', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+    
+    // Field Settings
+    getFieldSettings: () => apiCall('/admin/settings/fields'),
+    updateFieldSettings: (data: any) => apiCall('/admin/settings/fields', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+    
+    // Payment Settings
+    getPaymentSettings: () => apiCall('/admin/settings/payment'),
+    updatePaymentSettings: (data: any) => apiCall('/admin/settings/payment', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+    
+    // Notification Settings
+    getNotificationSettings: () => apiCall('/admin/settings/notifications'),
+    updateNotificationSettings: (data: any) => apiCall('/admin/settings/notifications', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+    
+    // Security Settings
+    getSecuritySettings: () => apiCall('/admin/settings/security'),
+    updateSecuritySettings: (data: any) => apiCall('/admin/settings/security', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+    
+    // Reset to defaults
+    resetSettings: () => apiCall('/admin/settings/reset', {
+        method: 'POST',
+    }),
+    
+    // Initialize settings (for first time setup)
+    initializeSettings: () => apiCall('/admin/settings/initialize', {
+        method: 'POST',
+    }),
 };
