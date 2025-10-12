@@ -45,9 +45,20 @@ export default function UserTable({users, setRefresh} : {users: UserType[], setR
             title: 'Actions',
             key: 'actions',
             render: (item: any) => (
-                <button onClick={() => handleEditStatus(item)} className='p-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors'>
-                    View
-                </button>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => handleEditStatus(item)} 
+                        className='px-3 py-1 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors'
+                    >
+                        View
+                    </button>
+                    <button 
+                        onClick={() => handleDeleteUser(item)} 
+                        className='px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors'
+                    >
+                        Delete
+                    </button>
+                </div>
             ),
         },
     ]
@@ -65,10 +76,19 @@ export default function UserTable({users, setRefresh} : {users: UserType[], setR
     };
 
     const handleEditStatus = (item: UserType) => {
-        // Logic to edit booking status
-        console.log('Editing status for:', item)
+        // Logic to edit user details
+        console.log('Editing user:', item)
         setSelectedItem(item);
         setIsModalOpen(true);
+    }
+
+    const handleDeleteUser = (item: UserType) => {
+        // Logic to delete user
+        if (window.confirm(`Are you sure you want to delete user ${item.first_name}?`)) {
+            console.log('Deleting user:', item)
+            // TODO: Implement user deletion logic
+            alert('Delete user functionality to be implemented')
+        }
     }
 
     const data = users.map((item) => {
@@ -77,8 +97,16 @@ export default function UserTable({users, setRefresh} : {users: UserType[], setR
             names: item.first_name,
             email: item.email,
             phone: item.phone_number,
-            activity: item.updatedAt,
-            joined: item.createdAt,
+            activity: item.updatedAt ? new Date(item.updatedAt).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            }) : 'N/A',
+            joined: item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            }) : 'N/A',
         }
     })
 

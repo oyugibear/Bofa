@@ -3,6 +3,7 @@ import React, { useState } from 'react'
 import FormSelect from '../FormSelect'
 import { bookingAPI, userAPI } from '@/utils/api'
 import { useToast } from '@/components/Providers/ToastProvider'
+import BasicTextOutput from '../Outputs/BasicTextOutput'
 
 interface UserModalProps {
   isOpen: boolean
@@ -43,22 +44,20 @@ export default function UserModal({ isOpen, onClose, setRefresh, item } : UserMo
 
   return (
     <Modal
-        title="Edit User Status"
+        title="User Details"
         closable={{ 'aria-label': 'Custom Close Button' }}
         open={isOpen}
         onOk={handleEditStatus}
         onCancel={onClose}
       >
         <div className='flex flex-col gap-4'>
-            <p>Please select a user status:</p>
+            <p>User Information:</p>
             <div className='flex flex-col gap-2'>
-                <FormSelect
-                    options={options}
-                    label='User Status'
-                    onChange={(e) => setStatus(e.target.value)}
-                    value={status}
-                    placeholder='-' 
-                />
+                <BasicTextOutput label="Name" value={item?.names || 'N/A'} />
+                <BasicTextOutput label="Email" value={item?.email || 'N/A'} />
+                <BasicTextOutput label="Phone" value={item?.phone || 'N/A'} />
+                <BasicTextOutput label="Last Activity" value={item?.activity || 'N/A'} />
+                <BasicTextOutput label="Joined" value={item?.joined || 'N/A'} />
             </div>
         </div>
     </Modal>

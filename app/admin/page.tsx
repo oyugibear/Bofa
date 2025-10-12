@@ -55,6 +55,12 @@ export default function AdminPage() {
     const [modalType, setModalType] = useState('')
     const { user, fullName, isAdmin } = useUser()
     const { logout } = useAuth()
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        role: 'user'
+    })
 
     const [bookings, setBookings] = useState<BookingDetails[]>([])
     const [payments, setPayments] = useState<Payment[]>([])
@@ -85,6 +91,44 @@ export default function AdminPage() {
 
         fetchData()
     }, [])
+
+    const handleSave = async () => {
+        if (!formData.name || !formData.email) {
+            message.error('Please fill in required fields')
+            return
+        }
+
+        try {
+            switch (modalType) {
+                case 'user':
+                    // TODO: Implement user creation
+                    message.success('User functionality to be implemented')
+                    break
+                case 'booking':
+                    // TODO: Implement booking creation
+                    message.success('Booking functionality to be implemented')
+                    break
+                case 'team':
+                    // TODO: Implement team creation
+                    message.success('Team functionality to be implemented')
+                    break
+                case 'league':
+                    // TODO: Implement league creation
+                    message.success('League functionality to be implemented')
+                    break
+                default:
+                    message.error('Unknown modal type')
+            }
+            setShowModal(false)
+            setFormData({ name: '', email: '', phone: '', role: 'user' })
+        } catch (error) {
+            message.error('Failed to save data')
+        }
+    }
+
+    const handleInputChange = (field: string, value: string) => {
+        setFormData(prev => ({ ...prev, [field]: value }))
+    }
 
     const handleLogout = () => {
         AntModal.confirm({
@@ -155,17 +199,55 @@ export default function AdminPage() {
             <div className="space-y-4">
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <input type="text" className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" />
+                <input 
+                    type="text" 
+                    value={formData.name}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" 
+                    placeholder="Enter name"
+                />
             </div>
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input type="email" className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" />
+                <input 
+                    type="email" 
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" 
+                    placeholder="Enter email"
+                />
             </div>
+            {modalType === 'user' && (
+                <>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone (Optional)</label>
+                        <input 
+                            type="tel" 
+                            value={formData.phone}
+                            onChange={(e) => handleInputChange('phone', e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent" 
+                            placeholder="Enter phone number"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                        <select 
+                            value={formData.role}
+                            onChange={(e) => handleInputChange('role', e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent"
+                        >
+                            <option value="user">User</option>
+                            <option value="coach">Coach</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </>
+            )}
             <div className="flex gap-3 pt-4">
                 <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
                 Cancel
                 </button>
-                <button className="flex-1 px-4 py-2 bg-[#3A8726FF] text-white rounded-lg hover:bg-[#2d6b1f]">
+                <button onClick={handleSave} className="flex-1 px-4 py-2 bg-[#3A8726FF] text-white rounded-lg hover:bg-[#2d6b1f]">
                 Save
                 </button>
             </div>

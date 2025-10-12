@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import React from 'react'
 
 export default function About() {
@@ -63,9 +64,11 @@ export default function About() {
             </div>
           </div>
 
-          <button className='bg-[#3A8726FF] hover:bg-[#2C6A1BFF] text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 w-full sm:w-auto'>
-            Learn More About Us
-          </button>
+          <Link href="/about">
+            <button className='bg-[#3A8726FF] hover:bg-[#2C6A1BFF] text-white font-bold py-3 px-6 rounded-lg transition-colors duration-200 w-full sm:w-auto'>
+              Learn More About Us
+            </button>
+          </Link>
         </div>
 
         <div className='flex-1 order-1 md:order-2 w-full'>
