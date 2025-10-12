@@ -2,7 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import React from 'react'
 
-export default function BasicHero() {
+export default function AboutHero() {
   return (
       <div className="relative bg-gradient-to-br from-[#3A8726FF] via-[#2C6A1BFF] to-[#1E4B0FFF] py-16 md:py-24 overflow-hidden">
         {/* Background Pattern */}

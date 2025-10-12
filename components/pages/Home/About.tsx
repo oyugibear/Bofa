@@ -26,27 +26,29 @@ export default function About() {
   ];
 
   return (
-    <div className='max-w-[1440px] w-full flex flex-col items-center justify-center mx-auto p-4 md:p-8 min-h-[50vh] space-y-8 md:space-y-12'>
+    <div className='max-w-7xl w-full flex flex-col items-center justify-center mx-auto px-4 sm:px-6 lg:px-8 space-y-16'>
       
       {/* Header Section */}
-      <div className='text-center space-y-4'>
-        <h2 className='h2 text-2xl md:text-3xl lg:text-4xl text-center'>About Arena 03 Kilifi</h2>
-        <p className='text-base md:text-lg text-gray-600 max-w-[600px] mx-auto'>
+      <div className='text-center space-y-6'>
+        <h2 className='font-bold text-xl md:text-2xl text-gray-900'>About Arena 03 Kilifi</h2>
+        <p className='text-base md:text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed'>
           Where passion meets performance in the heart of Kilifi
         </p>
       </div>
 
       {/* Main Content Section */}
-      <div className='flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 w-full max-w-[1200px]'>
-        <div className='flex-1 order-2 md:order-1 space-y-6'>
-          <div className='space-y-4'>
-            <h3 className='text-xl md:text-2xl font-bold text-gray-800'>Our Mission</h3>
-            <p className='text-sm md:text-base text-gray-700 leading-relaxed'>
-              At Arena 03 Kilifi, we aim to be the leading sports and events venue in the region. We are about people and play as we seek to create an unparalleled experience for both athletes and event organizers.
-            </p>
-            <p className='text-sm md:text-base text-gray-700 leading-relaxed'>
-              Our world-class facilities combined with our passion for sports create the perfect environment for athletes to thrive, teams to bond, and memories to be made.
-            </p>
+      <div className='flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-16 w-full'>
+        <div className='flex-1 order-2 lg:order-1 space-y-8'>
+          <div className='space-y-6'>
+            <h3 className='text-lg md:text-xl font-bold text-gray-800'>Our Mission</h3>
+            <div className='space-y-4'>
+              <p className='text-sm md:text-base text-gray-700 leading-relaxed'>
+                At Arena 03 Kilifi, we aim to be the leading sports and events venue in the region. We are about people and play as we seek to create an unparalleled experience for both athletes and event organizers.
+              </p>
+              <p className='text-sm md:text-base text-gray-700 leading-relaxed'>
+                Our world-class facilities combined with our passion for sports create the perfect environment for athletes to thrive, teams to bond, and memories to be made.
+              </p>
+            </div>
           </div>
 
           {/* Stats Section */}
@@ -85,32 +87,18 @@ export default function About() {
       </div>
 
       {/* Features Grid */}
-      <div className='w-full max-w-[1200px]'>
-        <h3 className='text-xl md:text-2xl font-bold text-center text-gray-800 mb-8'>What Makes Us Special</h3>
-        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6'>
+      <div className='w-full'>
+        <div className='text-center space-y-6 mb-12'>
+          <h3 className='text-xl md:text-2xl font-bold text-gray-800'>What Makes Us Special</h3>
+        </div>
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8'>
           {features.map((feature, index) => (
-            <div key={index} className='text-center p-6 bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300'>
-              <div className='text-3xl md:text-4xl mb-4'>{feature.icon}</div>
-              <h4 className='text-lg font-semibold text-gray-800 mb-2'>{feature.title}</h4>
+            <div key={index} className='text-center p-8 bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105'>
+              <div className='text-3xl mb-6'>{feature.icon}</div>
+              <h4 className='text-base md:text-lg font-semibold text-gray-800 mb-4'>{feature.title}</h4>
               <p className='text-sm text-gray-600 leading-relaxed'>{feature.description}</p>
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Call to Action Section */}
-      <div className='bg-gradient-to-br from-[#3A8726FF] to-[#2C6A1BFF] text-white rounded-xl p-6 md:p-8 text-center w-full max-w-[800px]'>
-        <h3 className='text-xl md:text-2xl font-bold mb-4'>Ready to Experience Arena 03?</h3>
-        <p className='text-sm md:text-base mb-6 opacity-90'>
-          Join our community of athletes and sports enthusiasts. Book your field time or register for our programs today.
-        </p>
-        <div className='flex flex-col sm:flex-row gap-4 justify-center'>
-          <button className='bg-white text-[#3A8726FF] hover:bg-gray-100 font-bold py-3 px-6 rounded-lg transition-colors duration-200'>
-            Book Field Now
-          </button>
-          <button className='bg-transparent border-2 border-white text-white hover:bg-white hover:text-[#3A8726FF] font-bold py-3 px-6 rounded-lg transition-colors duration-200'>
-            View Programs
-          </button>
         </div>
       </div>
     </div>

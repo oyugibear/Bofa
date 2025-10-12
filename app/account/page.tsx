@@ -297,17 +297,6 @@ export default function AccountPage() {
     }
   }
 
-  const handleLogout = () => {
-    Modal.confirm({
-      title: 'Confirm Logout',
-      content: 'Are you sure you want to logout?',
-      onOk: () => {
-        logout()
-        message.success('Logged out successfully')
-      }
-    })
-  }
-
   const updateProfile = async () => {
     setProfileLoading(true)
     try {
@@ -370,15 +359,6 @@ export default function AccountPage() {
     }
   }
 
-  const openReviewModal = (booking: Booking) => {
-    setSelectedBooking(booking)
-    setReviewForm({
-      rating: 5,
-      comment: ''
-    })
-    setReviewModal(true)
-  }
-
   const submitReview = async () => {
     if (!selectedBooking) return
     
@@ -405,90 +385,6 @@ export default function AccountPage() {
     }
   }
 
-  const viewBookingDetails = (booking: Booking) => {
-    setSelectedBooking(booking)
-    message.info(`Viewing details for booking ${booking.id}`)
-  }
-
-  const cancelBooking = (bookingId: string) => {
-    Modal.confirm({
-      title: 'Cancel Booking',
-      content: 'Are you sure you want to cancel this booking? This action cannot be undone.',
-      onOk: async () => {
-        try {
-          setLoading(true)
-          // Use direct API call to cancel booking
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/bookings/${bookingId}/cancel`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-            }
-          })
-          
-          if (response.ok) {
-            // Update local state
-            setBookings(prev => 
-              prev.map(booking => 
-                booking.id === bookingId 
-                  ? { ...booking, status: 'cancelled' as const }
-                  : booking
-              )
-            )
-            
-            // Add activity record
-            const newActivity: Activity = {
-              id: `cancel_${Date.now()}`,
-              type: 'cancellation',
-              description: `Cancelled booking ${bookingId}`,
-              date: new Date().toISOString(),
-              status: 'success'
-            }
-            setActivities(prev => [newActivity, ...prev])
-            
-            message.success('Booking cancelled successfully')
-          } else {
-            message.error('Failed to cancel booking')
-          }
-        } catch (error) {
-          console.error('Cancel booking error:', error)
-          message.error('Failed to cancel booking. Please try again.')
-        } finally {
-          setLoading(false)
-        }
-      }
-    })
-  }
-
-  const handleNotificationChange = async (key: keyof typeof notifications, value: boolean) => {
-    try {
-      const updatedNotifications = { ...notifications, [key]: value }
-      setNotifications(updatedNotifications)
-      
-      // For now, just store locally - you can implement API endpoint later
-      localStorage.setItem('notification_preferences', JSON.stringify(updatedNotifications))
-      message.success('Notification preferences updated')
-    } catch (error) {
-      // Revert on error
-      setNotifications(notifications)
-      message.error('Failed to update notification preferences')
-    }
-  }
-
-  const handlePrivacyChange = async (key: keyof typeof privacy, value: boolean) => {
-    try {
-      const updatedPrivacy = { ...privacy, [key]: value }
-      setPrivacy(updatedPrivacy)
-      
-      // For now, just store locally - you can implement API endpoint later
-      localStorage.setItem('privacy_settings', JSON.stringify(updatedPrivacy))
-      message.success('Privacy settings updated')
-    } catch (error) {
-      // Revert on error
-      setPrivacy(privacy)
-      message.error('Failed to update privacy settings')
-    }
-  }
 
   const downloadReceipt = (paymentId: string) => {
     try {
@@ -550,25 +446,6 @@ export default function AccountPage() {
     }
   }
 
-  const getPaymentStatusColor = (status: string) => {
-    switch (status) {
-      case 'paid': return 'green'
-      case 'pending': return 'orange'
-      case 'failed': return 'red'
-      default: return 'default'
-    }
-  }
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'booking': return <CalendarOutlined />
-      case 'payment': return <CreditCardOutlined />
-      case 'review': return <StarOutlined />
-      case 'cancellation': return <CloseCircleOutlined />
-      case 'profile_update': return <UserOutlined />
-      default: return <FileTextOutlined />
-    }
-  }
 
   // Booking Table columns
   const bookingColumns: ColumnsType<Booking> = [
@@ -699,423 +576,62 @@ export default function AccountPage() {
 
   return (
     <>
-      <style jsx global>{`
-        /* Enhanced Mobile-Friendly Styles */
-        .mobile-friendly-tabs .ant-tabs-nav {
-          margin: 0 !important;
-          padding: 0 8px !important;
-        }
-        
-        .mobile-friendly-tabs .ant-tabs-tab {
-          padding: 10px 16px !important;
-          margin: 0 4px !important;
-          border-radius: 8px !important;
-          transition: all 0.3s ease !important;
-        }
-        
-        .mobile-friendly-tabs .ant-tabs-tab:hover {
-          background: linear-gradient(135deg, #3A8726FF 0%, #4CAF50 100%) !important;
-          color: white !important;
-        }
-        
-        .mobile-friendly-tabs .ant-tabs-tab:hover .ant-tabs-tab-btn {
-          color: white !important;
-        }
-        
-        .mobile-friendly-tabs .ant-tabs-tab-active {
-          background: linear-gradient(135deg, #3A8726FF 0%, #4CAF50 100%) !important;
-          color: white !important;
-          border: none !important;
-        }
-        
-        .mobile-friendly-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
-          color: white !important;
-        }
-        
-        /* Additional tab content styling */
-        .mobile-friendly-tabs .ant-tabs-tab .anticon {
-          color: inherit !important;
-        }
-        
-        .mobile-friendly-tabs .ant-tabs-tab-active .anticon {
-          color: white !important;
-        }
-        
-        /* Account Page Header Gradient */
-        .account-header-card {
-          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-          border: 1px solid #e2e8f0;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        }
-        
-        .profile-avatar-section {
-          background: linear-gradient(135deg, #3A8726FF 0%, #4CAF50 100%);
-          border-radius: 16px;
-          padding: 20px;
-          color: white;
-        }
-        
-        /* Enhanced Mobile Responsive Design */
-        @media (max-width: 640px) {
-          .mobile-friendly-tabs .ant-tabs-tab {
-            padding: 8px 12px !important;
-            margin: 0 2px !important;
-            font-size: 12px !important;
-          }
-          
-          .mobile-friendly-tabs .ant-tabs-tab-btn {
-            font-size: 12px !important;
-          }
-          
-          .ant-table-wrapper {
-            overflow-x: auto;
-          }
-          
-          .ant-modal-content {
-            margin: 8px !important;
-            border-radius: 12px !important;
-          }
-          
-          .ant-card-body {
-            padding: 12px !important;
-          }
-          
-          .profile-avatar-section {
-            padding: 16px;
-            border-radius: 12px;
-          }
-          
-          /* Mobile Card Spacing */
-          .mobile-account-container {
-            padding: 12px !important;
-          }
-          
-          /* Hero Grid Mobile Adjustments */
-          .hero-card-grid {
-            grid-template-columns: 1fr !important;
-            gap: 1rem !important;
-          }
-          
-          /* Stats Cards Mobile */
-          .stats-cards-container {
-            grid-template-columns: 1fr !important;
-          }
-        }
-        
-        /* Enhanced Card Designs */
-        .premium-card {
-          background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
-          border: 1px solid #e5e7eb;
-          border-radius: 16px;
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-          transition: all 0.3s ease;
-        }
-        
-        .premium-card:hover {
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-          transform: translateY(-2px);
-        }
-        
-        .booking-card-mobile {
-          background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-          transition: all 0.3s ease;
-          position: relative;
-          overflow: hidden;
-        }
-        
-        .booking-card-mobile::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 4px;
-          height: 100%;
-          background: linear-gradient(180deg, #3A8726FF 0%, #4CAF50 100%);
-        }
-        
-        .booking-card-mobile:hover {
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-          transform: translateY(-2px);
-        }
-        
-        .payment-card-mobile {
-          background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
-          border: 1px solid #bbf7d0;
-          border-radius: 12px;
-          box-shadow: 0 2px 8px rgba(34, 197, 94, 0.08);
-          transition: all 0.3s ease;
-          position: relative;
-          overflow: hidden;
-        }
-        
-        .payment-card-mobile::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 4px;
-          height: 100%;
-          background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
-        }
-        
-        .payment-card-mobile:hover {
-          box-shadow: 0 4px 16px rgba(34, 197, 94, 0.15);
-          transform: translateY(-2px);
-        }
-        
-        /* Enhanced Button Styles */
-        .btn-primary-gradient {
-          background: linear-gradient(135deg, #3A8726FF 0%, #4CAF50 100%) !important;
-          border: none !important;
-          box-shadow: 0 2px 8px rgba(58, 135, 38, 0.3) !important;
-          transition: all 0.3s ease !important;
-        }
-        
-        .btn-primary-gradient:hover {
-          background: linear-gradient(135deg, #2e6b1f 0%, #3d8b40 100%) !important;
-          box-shadow: 0 4px 12px rgba(58, 135, 38, 0.4) !important;
-          transform: translateY(-1px) !important;
-        }
-        
-        /* Enhanced Typography */
-        .heading-gradient {
-          background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-        
-        /* Tablet Responsive Design */
-        @media (min-width: 641px) and (max-width: 1024px) {
-          .tablet-optimized {
-            padding: 16px !important;
-          }
-          
-          .mobile-friendly-tabs .ant-tabs-tab {
-            padding: 10px 14px !important;
-            font-size: 14px !important;
-          }
-        }
-        
-        /* Desktop Enhancements */
-        @media (min-width: 1025px) {
-          .desktop-enhanced {
-            padding: 24px !important;
-          }
-          
-          .premium-card {
-            border-radius: 20px;
-          }
-          
-          .booking-card-mobile, .payment-card-mobile {
-            border-radius: 16px;
-          }
-        }
-        
-        /* Loading Animation Enhancement */
-        .enhanced-loading {
-          background: linear-gradient(135deg, #3A8726FF 0%, #4CAF50 100%);
-          border-radius: 50%;
-        }
-        
-        /* Status Badge Enhancements */
-        .status-badge-confirmed {
-          background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
-          color: white !important;
-          border: none !important;
-        }
-        
-        .status-badge-pending {
-          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
-          color: white !important;
-          border: none !important;
-        }
-        
-        .status-badge-cancelled {
-          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
-          color: white !important;
-          border: none !important;
-        }
-        
-        /* Stats Cards Alignment */
-        .stats-cards-container {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 1rem;
-          align-items: stretch;
-        }
-        
-        @media (max-width: 640px) {
-          .stats-cards-container {
-            grid-template-columns: 1fr;
-            gap: 0.75rem;
-          }
-        }
-        
-        @media (min-width: 768px) {
-          .stats-cards-container {
-            grid-template-columns: repeat(3, 1fr);
-          }
-        }
-        
-        /* Enhanced Hero Cards Alignment */
-        .hero-card-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 1.5rem;
-          align-items: stretch;
-        }
-        
-        @media (min-width: 1024px) {
-          .hero-card-grid {
-            grid-template-columns: 2fr 1fr;
-            align-items: start;
-          }
-        }
-      `}</style>
+
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-green-50 py-4 sm:py-8">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 mobile-account-container">
         
-        {/* Enhanced Profile Header */}
-        <Card className="mb-6 premium-card account-header-card">
-          <div className="space-y-6">
-            {/* Profile Info Section with Avatar - Hero Grid Layout */}
-            <div className="hero-card-grid">
-              {/* Avatar and Basic Info */}
-              <div className="profile-avatar-section">
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <Avatar 
-                    size={isMobile ? 64 : 80} 
-                    icon={<UserOutlined />}
-                    className="shadow-lg border-4 border-white"
-                    style={{ 
-                      backgroundColor: 'rgba(255,255,255,0.2)',
-                      fontSize: isMobile ? '24px' : '32px'
-                    }}
-                  />
-                  <div className="text-center sm:text-left flex-1">
-                    <h1 className="text-xl sm:text-2xl font-bold text-white mb-1">
-                      {userProfile.name}
-                    </h1>
-                    <p className="text-white/90 text-sm sm:text-base opacity-90">
-                      ⚽ Premium Member
-                    </p>
-                    <p className="text-white/80 text-xs sm:text-sm">
-                      Since {new Date(userProfile.memberSince).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Contact Info & Action Buttons - Right Side */}
-              <div className="space-y-4">
-                {/* Contact Info */}
-                <div className="bg-white rounded-xl p-4 shadow-sm h-fit">
-                  <h3 className="font-semibold text-gray-800 mb-3 heading-gradient">Contact Information</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                        <MailOutlined className="text-blue-500" />
-                      </div>
-                      <span className="truncate">{userProfile.email}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center">
-                        <PhoneOutlined className="text-green-500" />
-                      </div>
-                      <span>{userProfile.phone}</span>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Action Buttons */}
-                <div className="flex flex-col gap-3">
-                  <Button 
-                    icon={<ReloadOutlined />}
-                    onClick={refreshData}
-                    loading={dataLoading}
-                    className="rounded-lg"
-                    size="large"
-                    title="Refresh Data"
-                    block
-                  >
-                    <span className="hidden sm:inline">Refresh Data</span>
-                    <span className="sm:hidden">Refresh</span>
-                  </Button>
-                  <Button 
-                    type="primary" 
-                    icon={<EditOutlined />}
-                    onClick={() => setEditProfileModal(true)}
-                    className="btn-primary-gradient rounded-lg"
-                    size="large"
-                    block
-                  >
-                    <span className="hidden sm:inline">Edit Profile</span>
-                    <span className="sm:hidden">Edit</span>
-                  </Button>
-                </div>
-              </div>
+        {/* Profile Header */}
+        <div className='flex flex-col '>
+          <div className='flex flex-row items-center justify-between'>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-800">My Profile</h1>
             </div>
             
-            {/* Enhanced Stats Section */}
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl opacity-50"></div>
-              <div className="relative stats-cards-container">
-                <StatsCards userProfile={userProfile}/>
+          </div>
+
+          {/* card with user info */}
+          <div className='flex flex-col my-6 bg-white p-4 rounded-lg shadow-md border border-slate-50 text-sm premium-card'>
+            <div className='flex flex-col md:flex-row items-start md:items-center gap-4'>
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <UserOutlined className="text-2xl text-green-600" />
+              </div>
+              <div>
+                <h2 className='text-lg font-semibold'>Welcome back, {currentUser?.first_name}!</h2>
+                <p>Manage your account details and preferences.</p>
               </div>
             </div>
           </div>
-        </Card>
+        </div>
 
-        {/* Enhanced Main Content Tabs */}
-        <Card className="premium-card overflow-hidden">
+        <div className='flex flex-col premium-card p-6 mb-6 overflow-hidden'>
           <Tabs 
             activeKey={activeTab} 
             onChange={setActiveTab}
             tabPosition="top"
-            type="card"
-            className="mobile-friendly-tabs"
             size={isMobile ? 'small' : 'large'}
           >
+            {/* Bookings */}
             <TabPane 
               tab={
-                <span className="flex items-center gap-1 sm:gap-2">
-                  <CalendarOutlined />
-                  <span className="hidden sm:inline">My Bookings</span>
-                  <span className="sm:hidden">Bookings</span>
-                  <Badge 
-                    count={bookings.length} 
-                    size="small" 
-                    style={{ backgroundColor: '#3A8726FF' }}
-                  />
+                <span className="flex items-center gap-1 text-sm sm:gap-2 text-black hover:text-green-800">
+                  <span className="">My Bookings</span>
+                  <div className='bg-green-100  text-xs font-semibold px-2 py-2 rounded-full'>
+                    {bookings.length}
+                  </div>
                 </span>
               } 
               key="bookings"
             >
-              <div className="space-y-4 sm:space-y-6 my-8 md:mx-2 tablet-optimized desktop-enhanced">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                  <div>
-                    <h2 className="text-lg sm:text-xl font-semibold heading-gradient mb-2">
+              <div className="p-2">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center my-4">
+                  <div className=''>
+                    <h2 className="text-lg sm:text-xl font-semibold heading-gradient ">
                       Bookings
                     </h2>
                     <p className="text-gray-600 text-sm">
                       Manage your field reservations and track booking history
                     </p>
                   </div>
-                  <Link href="/booking">
-                    <Button 
-                      type="primary" 
-                      className="btn-primary-gradient w-full sm:w-auto rounded-lg"
-                      size="large"
-                      icon={<CalendarOutlined />}
-                    >
-                      <span className="hidden sm:inline">Book New Field</span>
-                      <span className="sm:hidden">New Booking</span>
-                    </Button>
-                  </Link>
                 </div>
                 
                 {/* Enhanced Mobile Booking Cards */}
@@ -1185,38 +701,7 @@ export default function AccountPage() {
                           </div>
                         </div>
                         
-                        {/* <div className="flex gap-2">
-                          <Button 
-                            size="small" 
-                            icon={<EyeOutlined />}
-                            onClick={() => viewBookingDetails(booking)}
-                            className="flex-1 rounded-lg"
-                          >
-                            Details
-                          </Button>
-                          {booking.status === 'confirmed' && (
-                            <Button 
-                              size="small" 
-                              type="primary" 
-                              danger
-                              icon={<DeleteOutlined />}
-                              onClick={() => cancelBooking(booking.id)}
-                              className="flex-1 rounded-lg"
-                            >
-                              Cancel
-                            </Button>
-                          )}
-                          {booking.status === 'completed' && (
-                            <Button 
-                              size="small" 
-                              icon={<StarOutlined />}
-                              onClick={() => openReviewModal(booking)}
-                              className="flex-1 rounded-lg"
-                            >
-                              Review
-                            </Button>
-                          )}
-                        </div> */}
+        
                       </div>
                     </Card>
                     ))
@@ -1264,18 +749,14 @@ export default function AccountPage() {
               </div>
             </TabPane>
 
-
+            {/* Payment History */}
             <TabPane 
               tab={
-                <span className="flex items-center gap-1 sm:gap-2">
-                  <CreditCardOutlined />
-                  <span className="hidden sm:inline">Payment History</span>
-                  <span className="sm:hidden">Payments</span>
-                  <Badge 
-                    count={payments.length} 
-                    size="small" 
-                    style={{ backgroundColor: '#22c55e' }}
-                  />
+                <span className="flex items-center gap-1 text-sm sm:gap-2 text-black hover:text-green-800">
+                  <span className="">Payment History</span>
+                  <div className='bg-green-100  text-xs font-semibold px-2 py-2 rounded-full'>
+                    {payments.length}
+                  </div>
                 </span>
               } 
               key="payments"
@@ -1365,7 +846,7 @@ export default function AccountPage() {
                             icon={<DownloadOutlined />} 
                             block
                             onClick={() => downloadReceipt(payment._id)}
-                            className="rounded-lg btn-primary-gradient text-white border-none"
+                            className="rounded-lg btn-primary text-white border-none"
                             size="middle"
                           >
                             Download PDF Receipt
@@ -1408,8 +889,104 @@ export default function AccountPage() {
               </div>
             </TabPane>
 
+            {/* Profile & Settings */}
+            <TabPane 
+              tab={
+                <span className="flex items-center gap-1 text-sm sm:gap-2 text-black hover:text-green-800">
+                  <span className="">Profile &amp; Settings</span>
+                  
+                </span>
+              } 
+              key="Profile"
+            >
+              <div className="space-y-4 sm:space-y-6 my-8 md:mx-2 tablet-optimized desktop-enhanced">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-semibold heading-gradient mb-2">
+                    My Profile
+                  </h2>
+                  <p className="text-gray-600 text-sm">
+                    View and update your personal information
+                  </p>
+                </div>
+                
+                {/* Profile info */}
+                <div className="">
+                  <div className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+                    <div className="p-6">
+                     
+                        
+                      {/* Profile Details Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Left Column */}
+                        <div className="space-y-4">
+                          <div className='flex items-center justify-between flex-row'>
+                            <div className="flex items-center gap-4">
+                              <div>
+                                <h4 className="text-xl font-semibold text-gray-800">
+                                  {currentUser?.first_name} {currentUser?.second_name}
+                                </h4>
+                                <p className="text-sm text-gray-500">BOFA Member</p>
+                              </div>
+                            </div>
+                            {/* <Button 
+                              type="primary"
+                              icon={<EditOutlined />}
+                              className="btn-primary border  rounded-lg"
+                              onClick={() => setEditProfileModal(true)}
+                            >
+                              Edit Profile
+                            </Button> */}
+                          </div>
+
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                              <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                <MailOutlined className="text-green-600" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-xs text-gray-500 uppercase tracking-wide">Email</p>
+                                <p className="font-medium text-gray-800">{currentUser?.email}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <PhoneOutlined className="text-blue-600" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-xs text-gray-500 uppercase tracking-wide">Phone</p>
+                                <p className="font-medium text-gray-800">{currentUser?.phone_number || 'Not provided'}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <CalendarOutlined className="text-purple-600" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-xs text-gray-500 uppercase tracking-wide">Member Since</p>
+                                <p className="font-medium text-gray-800">
+                                  {new Date(currentUser?.createdAt || '').toLocaleDateString('en-US', { 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabPane>
+            
+
           </Tabs>
-        </Card>
+        </div>
       </div>
 
       {/* Enhanced Edit Profile Modal */}

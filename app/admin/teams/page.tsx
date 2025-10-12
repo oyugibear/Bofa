@@ -15,6 +15,7 @@ import { teamsAPI } from '@/utils/api'
 import { TeamTypes } from '@/types'
 import TeamsTable from '@/components/admin/Tables/TeamsTable'
 import TeamModal from '@/components/admin/Modals/TeamModal'
+import TeamRequestsTable from '@/components/admin/Tables/TeamRequestsTable'
 
 // Stats Component for Teams
 const TeamStats = ({ teams }: { teams: TeamTypes[] }) => {
