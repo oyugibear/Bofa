@@ -12,6 +12,7 @@ import { bookingAPI, paymentAPI } from '@/utils/api'
 import StatCard from '@/components/admin/StatCard'
 import BookingStats from '@/components/admin/BookingStats'
 import BookingTable from '@/components/admin/BookingTable'
+import BookingCalendar from '@/components/admin/BookingCalendar'
 
 
 // Bookings Table Component
@@ -94,6 +95,8 @@ export default function BookingsPage() {
                 {/* Stats Cards */}
                 <BookingStats bookings={bookings} payments={payments} />
 
+                {/* Booking Calendar */}
+                {/* <BookingCalendar bookings={bookings} /> */}
 
                 {/* Bookings Table */}
                 <BookingTable bookings={bookings} setRefresh={handleRefresh}/>

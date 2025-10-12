@@ -7,7 +7,7 @@ import { useToast } from '@/components/Providers/ToastProvider'
 interface BookingModalProps {
   isOpen: boolean
   onClose: () => void
-  setRefresh: (refresh: boolean) => void
+  setRefresh: () => void
   item: any
 }
 
@@ -23,11 +23,11 @@ export default function BookingModal({ isOpen, onClose, setRefresh, item } : Boo
 
         // Call API to update booking status here
         try {
-            const { data } = await bookingAPI.update(item.id, status);
+            const { data } = await bookingAPI.update(item.id, { status: status });
             if(data){
                 console.log(`Updated booking ${item.id} to status: ${status}`);
                 toast.success("Booking status updated successfully");
-                setRefresh(true); // Trigger a refresh after updating
+                setRefresh(); // Trigger a refresh after updating
             }
         } catch (error) {
             console.error('Error updating booking status:', error);

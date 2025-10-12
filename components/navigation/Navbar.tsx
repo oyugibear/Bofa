@@ -104,27 +104,15 @@ export default function Navbar() {
 
             <div className='flex flex-row items-center gap-4'>
                 { isAuthenticated && user ? (
-                  <Dropdown menu={{ items }}>
-                    <div className='flex items-center gap-2 font-medium cursor-pointer'>
-                      <p>More</p>
-                      <BiMenuAltLeft/>
-                    </div>
-                  </Dropdown>
-                    // <div className="flex items-center gap-3">
-                    //     <Link href="/account" className='text-gray-700 hover:text-[#3A8726FF] transition-colors duration-200'>
-                    //         <button className='flex items-center gap-2 p-3 pointer-cursor hover:bg-[#F5FBF4FF] border border-[#3A8726FF] rounded-full font-medium transition-colors duration-200'>
-                    //             <HiOutlineUser size={20} className="text-[#3A8726FF]"/>
-                    //             <span className="hidden sm:inline">My Account</span>
-                    //         </button>
-                    //     </Link>
-                    //     {isAdmin && (
-                    //         <Link href="/admin" className='text-gray-700 hover:text-[#3A8726FF] transition-colors duration-200'>
-                    //             <button className='flex items-center gap-2 px-3 py-2 bg-[#3A8726FF] text-white rounded-lg hover:bg-[#2d6b1f] font-medium transition-colors duration-200'>
-                    //                 Admin
-                    //             </button>
-                    //         </Link>
-                    //     )}
-                    // </div>
+                  <>
+                    <Dropdown menu={{ items }}>
+                      <div className='flex items-center gap-2 font-medium cursor-pointer'>
+                        <p>More</p>
+                        <BiMenuAltLeft/>
+                      </div>
+                    </Dropdown>
+                    
+                  </>
                 ) : (
                     <Link href="/auth/login" className='text-gray-700 hover:text-[#3A8726FF] transition-colors duration-200'>
                         <button className='flex items-center gap-1 p-3 pointer-cursor hover:bg-[#F5FBF4FF] border border-[#3A8726FF] rounded-full font-medium transition-colors duration-200'>
