@@ -1,0 +1,27 @@
+{
+  "name": "Arena 03 Kilifi",
+  "short_name": "Arena03",
+  "description": "Arena 03 Kilifi - Sports Academy and Wellness Center",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3A8726",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/logo.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["sports", "fitness", "wellness", "academy"],
+  "lang": "en",
+  "dir": "ltr"
+}
