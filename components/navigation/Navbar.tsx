@@ -42,7 +42,7 @@ const navigationItems = [
 
 export default function Navbar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const { logout } = useAuth();
+  const { logout, token } = useAuth();
   const { user, isAuthenticated, fullName, displayName, isAdmin } = useUser();
 
   const showDrawer = () => {
@@ -52,6 +52,16 @@ export default function Navbar() {
   const closeDrawer = () => {
     setDrawerOpen(false);
   };
+
+  // Enhanced debugging
+  console.log("Auth Debug:", {
+    user,
+    isAuthenticated,
+    hasToken: !!token,
+    userRole: user?.role,
+    isAdmin,
+    fullName
+  });
 
   const items: MenuProps['items'] = [
     {
@@ -86,6 +96,8 @@ export default function Navbar() {
     },
     
   ];
+
+  console.log("user items", user, isAuthenticated)
 
   return (
     <div className='flex flex-col w-full items-center justify-center bg-white text-sm'>

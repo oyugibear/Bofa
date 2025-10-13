@@ -18,9 +18,9 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/icon.png" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <meta name="theme-color" content="#eab308" />
+        <link rel="icon" href="/logo.webp" />
+        <link rel="apple-touch-icon" href="/logo.webp" />
+        <meta name="theme-color" content="#3A8726" />
         <link rel="manifest" href="/manifest.json" />
         
         {/* Structured Data for SEO */}

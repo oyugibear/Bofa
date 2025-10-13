@@ -174,25 +174,102 @@ class SecureStorage {
   }
   
   static setToken(token: string): void {
-    if (typeof window === 'undefined') return
+    console.log('🔑 setToken() called with:', {
+      tokenProvided: !!token,
+      tokenType: typeof token,
+      tokenLength: token?.length,
+      isWindow: typeof window !== 'undefined',
+      tokenPreview: token ? token.substring(0, 20) + '...' : 'none'
+    })
+    
+    if (typeof window === 'undefined') {
+      console.log('❌ setToken() aborted: window undefined (SSR)')
+      return
+    }
+    
+    if (!token || token === 'undefined' || token === 'null') {
+      console.log('❌ setToken() aborted: invalid token provided')
+      return
+    }
     
     // Set token expiry to 24 hours
     const expiry = Date.now() + (24 * 60 * 60 * 1000)
     
-    localStorage.setItem(this.TOKEN_KEY, this.encrypt(token))
-    localStorage.setItem(this.EXPIRY_KEY, expiry.toString())
+    try {
+      console.log('🔐 Encrypting token...')
+      const encrypted = this.encrypt(token)
+      
+      console.log('💾 Storing to localStorage...')
+      localStorage.setItem(this.TOKEN_KEY, encrypted)
+      localStorage.setItem(this.EXPIRY_KEY, expiry.toString())
+      
+      console.log('✅ setToken() success:', {
+        originalTokenLength: token?.length,
+        encryptedTokenLength: encrypted?.length,
+        tokenKey: this.TOKEN_KEY,
+        expiry: expiry,
+        expiryDate: new Date(expiry).toISOString()
+      })
+      
+      // Immediately verify storage
+      const retrieved = localStorage.getItem(this.TOKEN_KEY)
+      const retrievedExpiry = localStorage.getItem(this.EXPIRY_KEY)
+      console.log('🔍 setToken() verification:', {
+        tokenWasStored: !!retrieved,
+        expiryWasStored: !!retrievedExpiry,
+        tokenStoredLength: retrieved?.length,
+        tokenMatches: retrieved === encrypted,
+        allLocalStorageKeys: Object.keys(localStorage)
+      })
+      
+      // Double check by trying to retrieve
+      setTimeout(() => {
+        const testRetrieve = localStorage.getItem(this.TOKEN_KEY)
+        console.log('⏱️ setToken() delayed verification (100ms):', {
+          stillThere: !!testRetrieve,
+          length: testRetrieve?.length
+        })
+      }, 100)
+      
+    } catch (error) {
+      console.error('💥 setToken() failed:', error)
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      })
+    }
   }
   
   static getToken(): string | null {
     if (typeof window === 'undefined') return null
     
     if (this.isExpired()) {
+      console.log('Token expired, clearing all auth data')
       this.clearAll()
       return null
     }
     
-    const token = localStorage.getItem(this.TOKEN_KEY)
-    return token ? this.decrypt(token) : null
+    const encryptedToken = localStorage.getItem(this.TOKEN_KEY)
+    console.log('getToken() debug:', {
+      hasEncryptedToken: !!encryptedToken,
+      encryptedTokenLength: encryptedToken?.length,
+      tokenKey: this.TOKEN_KEY
+    })
+    
+    if (!encryptedToken) return null
+    
+    try {
+      const decryptedToken = this.decrypt(encryptedToken)
+      console.log('Token decryption success:', {
+        decryptedTokenLength: decryptedToken?.length,
+        tokenExists: !!decryptedToken
+      })
+      return decryptedToken
+    } catch (error) {
+      console.error('Token decryption failed:', error)
+      this.clearAll()
+      return null
+    }
   }
   
   static setUser(user: User): void {
@@ -239,7 +316,23 @@ class SecureStorage {
   }
   
   static isAuthenticated(): boolean {
-    return !!(this.getToken() && this.getUser() && !this.isExpired())
+    const hasToken = !!this.getToken()
+    const hasUser = !!this.getUser()
+    const notExpired = !this.isExpired()
+    const result = hasToken && hasUser && notExpired
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('authStorage.isAuthenticated()', {
+        hasToken,
+        hasUser,
+        notExpired,
+        result,
+        // expiry: localStorage.getItem(this.EXPIRY_KEY),
+        currentTime: Date.now()
+      })
+    }
+    
+    return result
   }
 }
 
