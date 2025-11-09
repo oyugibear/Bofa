@@ -1,6 +1,6 @@
 'use client'
 
-import React, { use, useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { 
   TeamOutlined,
   UserOutlined,
@@ -9,6 +9,7 @@ import {
   PlusOutlined,
   DownloadOutlined,
 } from '@ant-design/icons'
+import { Spin, message } from 'antd'
 import Link from 'next/link'
 import SideMenu from '../../../components/admin/SideMenu'
 import { teamsAPI } from '@/utils/api'
@@ -84,27 +85,22 @@ export default function TeamsPage() {
 
   // data retrieval
   useEffect(() => {
-    const fetchBookings = async () => {
-    setLoading(true)
-    try {
-      const teamsResponse = await teamsAPI.getAll()
-      console.log("teams fetched:", teamsResponse.data)
-      setTeams(teamsResponse.data)
-    } catch (error) {
-      console.error('Error fetching teams:', error)
-    } finally {
-      // Don't set loading to false immediately
-      // Wait for components to render
-      setTimeout(() => {
+    const fetchTeams = async () => {
+      setLoading(true)
+      try {
+        const teamsResponse = await teamsAPI.getAll()
+        console.log("teams fetched:", teamsResponse.data)
+        setTeams(teamsResponse.data)
+      } catch (error) {
+        console.error('Error fetching teams:', error)
+        message.error('Failed to load teams data')
+      } finally {
         setLoading(false)
-      }, 100)
-    }
+      }
     }
 
-    fetchBookings()
-  }, [refresh])
-
-  // Effect to check if components have rendered
+    fetchTeams()
+  }, [refresh])  // Effect to check if components have rendered
   useEffect(() => {
     if (!loading && teams.length >= 0) {
       // Use requestAnimationFrame to ensure DOM has updated
@@ -123,9 +119,6 @@ export default function TeamsPage() {
       setComponentsReady(false)
     }
   }, [refresh])
-
-  // Show loading screen until both data is loaded and components are ready
-  const showLoading = loading || !componentsReady
 
   // Wrapper function for setRefresh to match expected signature
   const handleRefresh = () => {
@@ -152,40 +145,72 @@ export default function TeamsPage() {
     setSelectedData(item || null)
   }
 
-  
+  if (loading) {
+    return (
+      <div className='flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100'>
+        <SideMenu 
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
+        />
+        <div className='flex-1 flex items-center justify-center'>
+          <div className="text-center">
+            <Spin size="large" />
+            <p className="mt-4 text-gray-600">Loading teams data...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className='flex min-h-screen bg-gray-50'>
+    <div className='flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100'>
       <SideMenu 
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
       
-      <div className='flex-1 flex flex-col'>
-        {/* Top Header for Mobile */}
-        <div className="md:hidden bg-white shadow-sm border-b border-gray-200 p-4 pl-16">
-          <h1 className="text-xl font-bold text-gray-800">Teams</h1>
+      <div className='flex-1 flex flex-col overflow-hidden'>
+        {/* Enhanced Mobile Header */}
+        <div className="md:hidden bg-white shadow-lg border-b border-gray-200 p-4 pl-16 sticky top-0 z-40">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">Teams</h1>
+              <p className="text-sm text-gray-500">Manage teams</p>
+            </div>
+            <button 
+              onClick={() => handleModalOpen('Add')}
+              className="p-2 bg-[#3A8726FF] text-white rounded-full hover:bg-[#2d6b1f] transition-colors shadow-lg"
+              title="Add Team"
+            >
+              <PlusOutlined />
+            </button>
+          </div>
         </div>
         
-        {/* Main Content */}
-        <div className='flex-1 p-4 md:p-6 overflow-x-hidden'>
-          {/* Page Header */}
-          <div className="mb-6">
-            <nav className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-              <Link href="/admin" className="hover:text-[#3A8726FF]">Admin</Link>
-              <span>/</span>
-              <span className="text-gray-900 font-medium">Teams</span>
+        {/* Enhanced Main Content */}
+        <div className='flex-1 p-4 md:p-8 overflow-y-auto'>
+          {/* Modern Page Header */}
+          <div className="mb-8">
+            {/* Breadcrumb */}
+            <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
+              <Link href="/admin" className="hover:text-[#3A8726FF] transition-colors font-medium">
+                Dashboard
+              </Link>
+              <span className="text-gray-300">/</span>
+              <span className="text-gray-900 font-semibold">Teams</span>
             </nav>
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            
+            {/* Desktop Header */}
+            <div className="hidden md:flex justify-between items-center">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Team Management</h1>
-                <p className="text-gray-600 mt-1">Manage teams and their information</p>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Team Management</h1>
+                <p className="text-gray-600">Manage teams and their information</p>
               </div>
-              <div className="flex gap-3 text-sm">
-                {/* <button className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
-                  <DownloadOutlined /> Export
-                </button> */}
-                <button onClick={() => handleModalOpen('Add')} className="px-4 py-2 bg-[#3A8726FF] text-white rounded-lg hover:bg-[#2d6b1f] flex items-center gap-2">
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => handleModalOpen('Add')} 
+                  className="px-6 py-3 bg-[#3A8726FF] text-white rounded-xl hover:bg-[#2d6b1f] flex items-center gap-2 transition-colors shadow-lg hover:shadow-xl font-medium"
+                >
                   <PlusOutlined /> Add Team
                 </button>
               </div>

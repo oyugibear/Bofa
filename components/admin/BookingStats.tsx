@@ -13,7 +13,7 @@ export default function BookingStats({ bookings, payments }: { bookings: Booking
       { 
         title: 'Total Bookings', 
         value: bookings.length.toString(), 
-        icon: <CalendarOutlined />, 
+        icon: "",
         color: 'text-blue-600', 
         change: '+12%',
         subtitle: 'All time bookings'
@@ -21,7 +21,7 @@ export default function BookingStats({ bookings, payments }: { bookings: Booking
       { 
         title: 'Today\'s Bookings', 
         value: bookings.filter(booking => new Date(booking.date_requested).toDateString() === new Date().toDateString()).length.toString(), 
-        icon: <CheckCircleOutlined />, 
+        icon: "",
         color: 'text-green-600', 
         change: '+3',
         subtitle: 'Active today'
@@ -29,7 +29,7 @@ export default function BookingStats({ bookings, payments }: { bookings: Booking
       { 
         title: 'Pending Bookings', 
         value: bookings.filter(booking => booking.status == 'pending').length.toString(), 
-        icon: <ClockCircleOutlined />, 
+        icon: "",
         color: 'text-yellow-600', 
         change: '-2',
         subtitle: 'Awaiting confirmation'

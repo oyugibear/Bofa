@@ -27,33 +27,69 @@ export default function BookingTable({bookings, setRefresh} : {bookings: Booking
                     </span>
                 </div>
             ),
+            sorter: (a: any, b: any) => {
+                const nameA = `${a.client?.first_name || ''} ${a.client?.second_name || ''}`.trim()
+                const nameB = `${b.client?.first_name || ''} ${b.client?.second_name || ''}`.trim()
+                return nameA.localeCompare(nameB)
+            },
+            sortDirections: ['descend', 'ascend'],
         },
         {
             title: 'Booking Date',
             dataIndex: 'date',
             key: 'date',
+            sorter: (a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+            sortDirections: ['descend', 'ascend'],
         },
         {
             title: 'Booking Time',
             dataIndex: 'time',
             key: 'time',
+            sorter: (a: any, b: any) => {
+                // Handle time comparison safely
+                if (!a.time || !b.time) return 0
+                
+                // Extract hours and minutes for comparison
+                const [hoursA, minutesA] = a.time.split(':').map(Number)
+                const [hoursB, minutesB] = b.time.split(':').map(Number)
+                
+                const totalMinutesA = hoursA * 60 + (minutesA || 0)
+                const totalMinutesB = hoursB * 60 + (minutesB || 0)
+                
+                return totalMinutesA - totalMinutesB
+            },
+            sortDirections: ['descend', 'ascend'],
         },
         {
             title: 'Duration (hrs)',
             dataIndex: 'duration',
             key: 'duration',
+            sorter: (a: any, b: any) => parseInt(a.duration) - parseInt(b.duration),
+            sortDirections: ['descend', 'ascend'],
         },
         {
             title: 'Booking Status',
             dataIndex: 'status',
             key: 'status',
+            sorter: (a: any, b: any) => a.status.localeCompare(b.status),
+            sortDirections: ['descend', 'ascend'],
+            filters: [
+                { text: 'Confirmed', value: 'confirmed' },
+                { text: 'Pending', value: 'pending' },
+                { text: 'Cancelled', value: 'cancelled' },
+                { text: 'Completed', value: 'completed' },
+            ],
+            onFilter: (value: any, record: any) => record.status === value,
         },
         {
             title: 'Actions',
             key: 'actions',
             render: (item: any) => (
-                <button onClick={() => handleEditStatus(item)} className='p-2 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors'>
-                    Edit Status
+                <button 
+                    onClick={() => handleEditStatus(item)} 
+                    className='px-3 py-2 text-sm font-medium text-[#3A8726FF] border border-[#3A8726FF] border-opacity-20 rounded-lg hover:bg-[#3A8726FF] hover:bg-opacity-10 transition-all duration-200 flex items-center gap-1'
+                >
+                    <span>Edit Status</span>
                 </button>
             ),
         },
@@ -78,7 +114,33 @@ export default function BookingTable({bookings, setRefresh} : {bookings: Booking
         setIsModalOpen(true);
     }
 
-    const data = bookings.map((item) => {
+    // Sort bookings by creation date (latest first) and apply filters
+    const filteredAndSortedBookings = bookings
+        .sort((a, b) => new Date(b.createdAt || b._id).getTime() - new Date(a.createdAt || a._id).getTime())
+        .filter((item) => {
+            // Status filter
+            if (statusFilter !== 'all' && item.status !== statusFilter) {
+                return false
+            }
+            
+            // Search filter
+            if (searchTerm) {
+                const searchLower = searchTerm.toLowerCase()
+                const clientName = `${item.client?.first_name || ''} ${item.client?.second_name || ''}`.toLowerCase()
+                const date = item.date_requested?.toLowerCase() || ''
+                const time = item.time?.toLowerCase() || ''
+                const status = item.status?.toLowerCase() || ''
+                
+                return clientName.includes(searchLower) || 
+                       date.includes(searchLower) || 
+                       time.includes(searchLower) || 
+                       status.includes(searchLower)
+            }
+            
+            return true
+        })
+
+    const data = filteredAndSortedBookings.map((item) => {
         return {
             id: item._id,
             client: item.client,
@@ -93,29 +155,34 @@ export default function BookingTable({bookings, setRefresh} : {bookings: Booking
     })
 
     return (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-            {/* Table Header */}
+            <>
+            {/* Enhanced Table Header */}
             <div className="p-6 border-b border-gray-100">
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                     <div>
-                        <h3 className="text-lg font-semibold text-gray-800">All Bookings</h3>
-                        <p className="text-gray-600 text-sm mt-1">Manage field bookings and reservations</p>
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2 h-2 bg-[#3A8726FF] rounded-full"></div>
+                            <h3 className="text-lg font-semibold text-gray-800">All Bookings</h3>
+                        </div>
+                        <p className="text-gray-600 text-sm">
+                            Showing <span className="font-semibold text-[#3A8726FF]">{filteredAndSortedBookings.length}</span> of <span className="font-semibold">{bookings.length}</span> bookings
+                        </p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3">
                         <div className="relative">
-                        <SearchOutlined className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Search bookings..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent w-full sm:w-64"
-                        />
+                            <SearchOutlined className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Search bookings..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent w-full sm:w-64 transition-all duration-200"
+                            />
                         </div>
                         <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent"
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent transition-all duration-200 bg-white"
                         >
                             <option value="all">All Status</option>
                             <option value="confirmed">Confirmed</option>
@@ -127,8 +194,10 @@ export default function BookingTable({bookings, setRefresh} : {bookings: Booking
                 </div>
             </div>
 
-            {/* Table */}
-            <SimpleTable data={data} columns={columns} scroll={{ x: 1000 }}/>
+            {/* Enhanced Table */}
+            <div className="overflow-hidden">
+                <SimpleTable data={data} columns={columns} scroll={{ x: 1000 }}/>
+            </div>
             
             {/* Modal for Editing Status */}
             {isModalOpen && (
@@ -139,6 +208,6 @@ export default function BookingTable({bookings, setRefresh} : {bookings: Booking
                     item={selectedItem}
                 />
             )}
-        </div>
+        </>
     )
 }
