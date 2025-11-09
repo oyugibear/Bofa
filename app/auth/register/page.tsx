@@ -47,6 +47,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [checking, setChecking] = useState(true)
+  const [apiResponse, setApiResponse] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null)
 
   // Check if user is already logged in
   useEffect(() => {
@@ -98,6 +99,10 @@ export default function RegisterPage() {
       newErrors.phone_number= 'Please enter a valid phone number'
     }
 
+    if (!formData.date_of_birth) {
+      newErrors.date_of_birth = 'Date of birth is required'
+    }
+
     if (!formData.password) {
       newErrors.password = 'Password is required'
     } else if (formData.password.length < 6) {
@@ -141,22 +146,54 @@ export default function RegisterPage() {
     }
 
     setLoading(true)
+    setApiResponse({ type: 'info', message: 'Sending registration request...' })
+    
     try {
       const { confirmPassword, ...userData } = formData
       
+      console.log('Sending registration data:', userData)
+      
       const response = await authAPI.register(userData)
       
+      console.log('Registration response:', response)
+      
       if (response.status && response.data) {
+        setApiResponse({ type: 'success', message: `Registration successful!` })
         message.success('Account created successfully! Please check your email for verification.')
         
         // Redirect to login page after successful registration
         setTimeout(() => {
           router.push('/auth/login')
         }, 2000)
+      } else {
+        throw new Error(response.error || 'Registration failed')
       }
     } catch (error) {
       console.error('Registration error:', error)
-      message.error(error instanceof Error ? error.message : 'Registration failed. Please try again.')
+      
+      // Show detailed API response errors
+      let errorMessage = 'Registration failed. Please try again.'
+      
+      if (error instanceof Error) {
+        errorMessage = error.message
+        console.warn('API Error Message:', error.message)
+      }
+      
+      // Set API response state for visual display
+      setApiResponse({ type: 'error', message: `API Error: ${errorMessage}` })
+      
+      // Display the error message
+      message.error({
+        content: errorMessage,
+        duration: 5,
+      })
+      
+      // Also show a console warning with full error details
+      console.warn('Full registration error details:', {
+        error: error,
+        timestamp: new Date().toISOString(),
+        formData: formData
+      })
     } finally {
       setLoading(false)
     }
@@ -258,6 +295,29 @@ export default function RegisterPage() {
               required
               icon={<LockOutlined className="text-gray-400" />}
             />
+
+            {/* API Response Display */}
+            {apiResponse && (
+              <div className={`p-3 rounded-lg border text-sm ${
+                apiResponse.type === 'success' 
+                  ? 'bg-green-50 border-green-200 text-green-700'
+                  : apiResponse.type === 'error'
+                  ? 'bg-red-50 border-red-200 text-red-700'
+                  : 'bg-blue-50 border-blue-200 text-blue-700'
+              }`}>
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    {apiResponse.type === 'success' && <span className="text-green-500">✅</span>}
+                    {apiResponse.type === 'error' && <span className="text-red-500">❌</span>}
+                    {apiResponse.type === 'info' && <span className="text-blue-500">ℹ️</span>}
+                  </div>
+                  <div className="ml-2">
+                    <p className="font-medium">Response:</p>
+                    <p>{apiResponse.message}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Terms and Conditions */}
             <div className="flex items-start">

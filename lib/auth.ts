@@ -76,6 +76,9 @@ export const authAPI = {
     role: string
   }): Promise<ApiResponse<RegisterResponse>> {
     try {
+      console.warn('🚀 Sending registration request to:', `${API_BASE_URL}/auth/register`)
+      console.warn('📤 Request payload:', userData)
+      
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: {
@@ -86,12 +89,23 @@ export const authAPI = {
 
       const data = await response.json()
       
+      console.warn('📥 API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: data,
+        timestamp: new Date().toISOString()
+      })
+      
       if (!response.ok) {
-        throw new Error(data.error || 'Registration failed')
+        console.warn('❌ Registration failed with status:', response.status)
+        console.warn('❌ Error details:', data)
+        throw new Error(data.error || data.message || `HTTP ${response.status}: Registration failed`)
       }
 
+      console.warn('✅ Registration successful:', data)
       return data
     } catch (error) {
+      console.warn('🚨 Network/Fetch Error:', error)
       throw new Error(error instanceof Error ? error.message : 'Network error')
     }
   },
