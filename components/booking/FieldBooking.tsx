@@ -92,6 +92,10 @@ export default function FieldBooking() {
   const [fields, setFields] = useState<Field[]>([])
   const [fieldsLoading, setFieldsLoading] = useState(true)
 
+  // All bookings - loaded once on page load
+  const [allBookings, setAllBookings] = useState<any[]>([])
+  const [bookingsLoading, setBookingsLoading] = useState(true)
+
   // Load fields from API
   useEffect(() => {
     const loadFields = async () => {
@@ -137,12 +141,47 @@ export default function FieldBooking() {
     loadFields()
   }, [])
 
-  // Load time slots when date or field changes
+  // Load all bookings when page loads
+  console.log("Allbookings: ", allBookings)
   useEffect(() => {
-    if (selectedDate && selectedField && fields.length > 0) {
+    const loadAllBookings = async () => {
+      try {
+        setBookingsLoading(true)
+        const response = await bookingAPI.getFieldAvailability()
+        console.log('All bookings loaded:', response.data)
+        // Filter out cancelled bookings and store only date, time, field info
+        const activeBookings = response.data.bookedSlots.filter((booking: any) => 
+          booking.status !== 'cancelled'
+        ).map((booking: any) => ({
+          date: booking.date,
+          time: booking.time,
+          duration: booking.duration,
+          field: booking.field._id || booking.field,
+          status: booking.status
+        }))
+        
+        setAllBookings(activeBookings)
+        console.log('Processed bookings:', activeBookings)
+      } catch (error) {
+        console.error('Failed to load bookings:', error)
+        toast.error('Failed to load booking data')
+        setAllBookings([])
+      } finally {
+        setBookingsLoading(false)
+      }
+    }
+
+    if (isAuthenticated) {
+      loadAllBookings()
+    }
+  }, [isAuthenticated])
+
+  // Load time slots when date or field changes (wait for bookings to be loaded)
+  useEffect(() => {
+    if (selectedDate && selectedField && fields.length > 0 && !bookingsLoading) {
       loadTimeSlots(selectedDate.format('YYYY-MM-DD'), selectedField)
     }
-  }, [selectedDate, selectedField, fields])
+  }, [selectedDate, selectedField, fields, bookingsLoading, allBookings])
 
   // Automatically assign the first available field when fields are loaded
   useEffect(() => {
@@ -159,12 +198,76 @@ export default function FieldBooking() {
   const [timeSlotsLoading, setTimeSlotsLoading] = useState(false)
 
   // Load available time slots for selected date and field
+  // Check if a time slot is booked (considering duration)
+  const isTimeSlotBooked = (date: string, fieldId: string, time: string) => {
+    const formattedDate = dayjs(date).format('YYYY-MM-DD')
+    const targetTime = dayjs(`${formattedDate} ${time}`)
+    
+    return allBookings.some(booking => {
+      const bookingDate = dayjs(booking.date).format('YYYY-MM-DD')
+      if (bookingDate !== formattedDate || booking.field !== fieldId) {
+        return false
+      }
+      
+      const bookingStartTime = dayjs(`${formattedDate} ${booking.time}`)
+      const duration = parseInt(booking.duration) || 1
+      const bookingEndTime = bookingStartTime.add(duration, 'hour')
+      
+      // Check if target time falls within the booking period
+      return (targetTime.isSame(bookingStartTime) || targetTime.isAfter(bookingStartTime)) && 
+             targetTime.isBefore(bookingEndTime)
+    })
+  }
+
+  // Check if all time slots for a date are booked
+  const isDateFullyBooked = (date: Dayjs) => {
+    if (!selectedField || allBookings.length === 0) return false
+    
+    const selectedFieldData = fields.find(f => f._id === selectedField)
+    if (!selectedFieldData) return false
+    
+    const formattedDate = date.format('YYYY-MM-DD')
+    const dayOfWeek = date.day()
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
+    const currentDayName = dayNames[dayOfWeek]
+    
+    let totalSlots = 0
+    let bookedSlots = 0
+    
+    if (selectedFieldData.operatingHours) {
+      const dayHours = selectedFieldData.operatingHours[currentDayName as keyof typeof selectedFieldData.operatingHours]
+      if (dayHours && !dayHours.closed) {
+        const startHour = parseInt(dayHours.open.split(':')[0])
+        const endHour = parseInt(dayHours.close.split(':')[0])
+        totalSlots = endHour - startHour
+        
+        for (let hour = startHour; hour < endHour; hour++) {
+          const timeString = `${hour.toString().padStart(2, '0')}:00`
+          if (isTimeSlotBooked(formattedDate, selectedField, timeString)) {
+            bookedSlots++
+          }
+        }
+      }
+    } else {
+      // Default hours 6AM to 10PM = 16 slots
+      totalSlots = 16
+      for (let hour = 6; hour < 22; hour++) {
+        const timeString = `${hour.toString().padStart(2, '0')}:00`
+        if (isTimeSlotBooked(formattedDate, selectedField, timeString)) {
+          bookedSlots++
+        }
+      }
+    }
+    
+    return totalSlots > 0 && bookedSlots >= totalSlots
+  }
+
   const loadTimeSlots = async (date: string, fieldId: string) => {
     try {
       setTimeSlotsLoading(true)
-      // In a real implementation, you'd have an API endpoint for available time slots
-      // For now, we'll generate them based on field operating hours
       const selectedFieldData = fields.find(f => f._id === fieldId)
+      
+      console.log('Loading time slots for:', { date, fieldId, allBookings: allBookings.length })
       
       const slots: TimeSlot[] = []
       
@@ -181,6 +284,9 @@ export default function FieldBooking() {
           
           for (let hour = startHour; hour < endHour; hour++) {
             const timeString = `${hour.toString().padStart(2, '0')}:00`
+            
+            // Check if this time slot is already booked
+            const isBooked = isTimeSlotBooked(date, fieldId, timeString)
             
             // Calculate price based on field pricing and time
             let price = selectedFieldData.price_per_hour
@@ -199,7 +305,7 @@ export default function FieldBooking() {
             
             slots.push({
               time: timeString,
-              available: true, // In real app, check against existing bookings
+              available: !isBooked,
               price: price
             })
           }
@@ -210,9 +316,13 @@ export default function FieldBooking() {
         // Fallback default hours if no operating hours specified
         for (let hour = 6; hour < 22; hour++) {
           const timeString = `${hour.toString().padStart(2, '0')}:00`
+          
+          // Check if this time slot is already booked
+          const isBooked = isTimeSlotBooked(date, fieldId, timeString)
+          
           slots.push({
             time: timeString,
-            available: true,
+            available: !isBooked,
             price: selectedFieldData?.price_per_hour || 2000
           })
         }
@@ -243,8 +353,17 @@ export default function FieldBooking() {
   }
 
   const disabledDate = (current: Dayjs) => {
+    if (!current) return false
+    
     // Disable past dates
-    return current && current < dayjs().endOf('day')
+    if (current < dayjs().endOf('day')) return true
+    
+    // Disable fully booked dates
+    if (!bookingsLoading && selectedField && allBookings.length > 0) {
+      return isDateFullyBooked(current)
+    }
+    
+    return false
   }
 
   const calculatePrice = () => {
@@ -407,6 +526,13 @@ export default function FieldBooking() {
 
   return (
     <div className="max-w-6xl mx-auto p-3 sm:p-6">
+      {bookingsLoading && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-blue-800 text-sm">
+            📋 Loading existing bookings to show availability...
+          </p>
+        </div>
+      )}
       <div className="text-center mb-8 sm:mb-12">
         <h2 className="h2 mb-2 sm:mb-4 px-4">Reserve Your Slot</h2>
         <p className="text-base text-gray-600 max-w-2xl mx-auto px-4">

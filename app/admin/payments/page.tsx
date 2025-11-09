@@ -16,11 +16,10 @@ import {
   PhoneOutlined,
   CalendarOutlined
 } from '@ant-design/icons'
-import { Skeleton } from 'antd'
+import { Skeleton, Spin, message } from 'antd'
 import Link from 'next/link'
 import SideMenu from '../../../components/admin/SideMenu'
 import PaymentsTable from '@/components/admin/Tables/PaymentsTable'
-import { LoadingScreen } from '@/components/common'
 import { paymentAPI } from '@/utils/api'
 import { Payment } from '@/types'
 
@@ -99,108 +98,90 @@ export default function PaymentsPage() {
   const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const fetchBookings = async () => {
-    setLoading(true)
-    try {
-      const paymentsResponse = await paymentAPI.getAll()
-      console.log("Payments fetched:", paymentsResponse.data)
-      setPayments(paymentsResponse.data)
-    } catch (error) {
-      console.error('Error fetching Payments:', error)
-    } finally {
-      // Don't set loading to false immediately
-      // Wait for components to render
-      setTimeout(() => {
+    const fetchPayments = async () => {
+      setLoading(true)
+      try {
+        const paymentsResponse = await paymentAPI.getAll()
+        console.log("Payments fetched:", paymentsResponse.data)
+        setPayments(paymentsResponse.data)
+      } catch (error) {
+        console.error('Error fetching Payments:', error)
+        message.error('Failed to load payments data')
+      } finally {
         setLoading(false)
-      }, 100)
-    }
+      }
     }
 
-    fetchBookings()
+    fetchPayments()
   }, [refresh])
-
-  // Effect to check if components have rendered
-  useEffect(() => {
-    if (!loading && payments.length >= 0) {
-      // Use requestAnimationFrame to ensure DOM has updated
-      requestAnimationFrame(() => {
-        // Additional delay to ensure all child components have rendered
-        setTimeout(() => {
-          setComponentsReady(true)
-        }, 200)
-      })
-    }
-  }, [loading, payments])
-
-  // Reset components ready state when refresh happens
-  useEffect(() => {
-    if (refresh) {
-      setComponentsReady(false)
-    }
-  }, [refresh])
-
-  // Show loading screen until both data is loaded and components are ready
-  const showLoading = loading || !componentsReady
 
   // Wrapper function for setRefresh to match expected signature
   const handleRefresh = () => {
     setRefresh(prev => !prev)
   }
 
+  if (loading) {
+    return (
+      <div className='flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100'>
+        <SideMenu 
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
+        />
+        <div className='flex-1 flex items-center justify-center'>
+          <div className="text-center">
+            <Spin size="large" />
+            <p className="mt-4 text-gray-600">Loading payments data...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className='flex min-h-screen bg-gray-50'>
+    <div className='flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100'>
       <SideMenu 
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
       
-      {/* Loading Screen Component */}
-      <LoadingScreen 
-        isLoading={showLoading}
-        title="Loading Payments"
-        description="Please wait while we fetch your payment data..."
-      />
-      
-      <div className='flex-1 flex flex-col' ref={contentRef}>
-        {/* Top Header for Mobile */}
-        <div className="md:hidden bg-white shadow-sm border-b border-gray-200 p-4 pl-16">
-          <h1 className="text-xl font-bold text-gray-800">Payments</h1>
+      <div className='flex-1 flex flex-col overflow-hidden'>
+        {/* Enhanced Mobile Header */}
+        <div className="md:hidden bg-white shadow-lg border-b border-gray-200 p-4 pl-16 sticky top-0 z-40">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">Payments</h1>
+              <p className="text-sm text-gray-500">Financial transactions</p>
+            </div>
+          </div>
         </div>
         
-        {/* Main Content */}
-        <div 
-          className={`flex-1 p-4 md:p-6 overflow-x-hidden transition-all duration-300 ${
-            showLoading ? 'opacity-30 pointer-events-none' : 'opacity-100'
-          }`}
-        >
-          {/* Page Header */}
-          <div className="mb-6">
-            <nav className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-              <Link href="/admin" className="hover:text-[#3A8726FF]">Admin</Link>
-              <span>/</span>
-              <span className="text-gray-900 font-medium">Payments</span>
+        {/* Enhanced Main Content */}
+        <div className='flex-1 p-4 md:p-8 overflow-y-auto'>
+          {/* Modern Page Header */}
+          <div className="mb-8">
+            {/* Breadcrumb */}
+            <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
+              <Link href="/admin" className="hover:text-[#3A8726FF] transition-colors font-medium">
+                Dashboard
+              </Link>
+              <span className="text-gray-300">/</span>
+              <span className="text-gray-900 font-semibold">Payments</span>
             </nav>
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            
+            {/* Desktop Header */}
+            <div className="hidden md:flex justify-between items-center">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Payment Management</h1>
-                <p className="text-gray-600 mt-1">Track payments and financial transactions</p>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Management</h1>
+                <p className="text-gray-600">Track payments and financial transactions</p>
               </div>
-              {/* <div className="flex gap-3">
-                <button className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
-                  <DownloadOutlined /> Export Report
-                </button>
-                <button className="px-4 py-2 bg-[#3A8726FF] text-white rounded-lg hover:bg-[#2d6b1f] flex items-center gap-2">
-                  <PlusOutlined /> Manual Payment
-                </button>
-              </div> */}
             </div>
           </div>
 
           {/* Stats Cards */}
-          <PaymentStats payments={payments} loading={showLoading} />
+          <PaymentStats payments={payments} loading={loading} />
 
           {/* Payments Table */}
-          <PaymentsTable payments={payments} setRefresh={handleRefresh} loading={showLoading} />
+          <PaymentsTable payments={payments} setRefresh={handleRefresh} loading={loading} />
         </div>
       </div>
     </div>

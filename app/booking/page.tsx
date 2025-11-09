@@ -9,7 +9,6 @@ function BookingPage() {
   return (
     <AuthGuard>
       <div className='flex flex-col w-fill items-center justify-center bg-white min-h-screen'>
-          {/* <BasicHero /> */}
           <div className='max-w-[1440px] w-full mx-auto p-4 my-8'>
               <FieldBooking />
           </div>

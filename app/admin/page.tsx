@@ -13,7 +13,7 @@ import {
   BellOutlined,
   LogoutOutlined
 } from '@ant-design/icons'
-import { message, Modal as AntModal } from 'antd'
+import { message, Modal as AntModal, Spin } from 'antd'
 import SideMenu from '../../components/admin/SideMenu'
 import { useUser, usePermissions, RoleGuard } from '../../hooks/useUser'
 import { withAuth, useAuth } from '../../contexts/AuthContext'
@@ -65,12 +65,13 @@ export default function AdminPage() {
     const [bookings, setBookings] = useState<BookingDetails[]>([])
     const [payments, setPayments] = useState<Payment[]>([])
     const [users, setUsers] = useState<UserType[]>([])
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
         // Fetch bookings, payments, and users data
         const fetchData = async () => {
+            setLoading(true)
             try {
-
                 const [bookingsData, paymentsData, usersData] = await Promise.all([
                     bookingAPI.getAll(),
                     paymentAPI.getAll(),
@@ -86,6 +87,9 @@ export default function AdminPage() {
 
             } catch (error) {
                 console.error('Error fetching data:', error)
+                message.error('Failed to load dashboard data')
+            } finally {
+                setLoading(false)
             }
         }
 
@@ -141,44 +145,71 @@ export default function AdminPage() {
         })
     }
 
+    if (loading) {
+        return (
+            <div className='flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100'>
+                <SideMenu 
+                    isMobileMenuOpen={isMobileMenuOpen}
+                    setIsMobileMenuOpen={setIsMobileMenuOpen}
+                />
+                <div className='flex-1 flex items-center justify-center'>
+                    <div className="text-center">
+                        <Spin size="large" />
+                        <p className="mt-4 text-gray-600">Loading dashboard...</p>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
     return (
-        <div className='flex min-h-screen bg-gray-50'>
+        <div className='flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100'>
         <SideMenu 
             isMobileMenuOpen={isMobileMenuOpen}
             setIsMobileMenuOpen={setIsMobileMenuOpen}
         />
         
-        <div className='flex-1 flex flex-col'>
-            {/* Top Header for Mobile */}
-            <div className="md:hidden bg-white shadow-sm border-b border-gray-200 p-4 pl-16 flex items-center justify-between">
-            <div>
-                <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
-                <p className="text-sm text-gray-600">Welcome back, {user?.first_name}!</p>
-            </div>
-            <button
-                onClick={handleLogout}
-                className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Logout"
-            >
-                <LogoutOutlined />
-            </button>
+        <div className='flex-1 flex flex-col overflow-hidden'>
+            {/* Enhanced Mobile Header */}
+            <div className="md:hidden bg-white shadow-lg border-b border-gray-200 p-4 pl-16 sticky top-0 z-40">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
+                        <p className="text-sm text-gray-600">Welcome back, {user?.first_name}!</p>
+                    </div>
+                    <button
+                        onClick={handleLogout}
+                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Logout"
+                    >
+                        <LogoutOutlined />
+                    </button>
+                </div>
             </div>
             
-            {/* Main Content */}
-            <div className='flex-1 p-4 md:p-6 overflow-x-hidden'>
-            {/* Desktop Title */}
-            <div className="hidden md:flex justify-between items-center mb-6">
-                <div>
-                <h1 className="text-2xl font-bold text-gray-800 mb-2">Dashboard</h1>
-                <p className="text-gray-600">Welcome back, {fullName}! Manage your Arena 03 facility</p>
+            {/* Enhanced Main Content */}
+            <div className='flex-1 p-4 md:p-8 overflow-y-auto'>
+            {/* Enhanced Page Header */}
+            <div className="mb-8">
+                {/* Breadcrumb */}
+                <nav className="hidden md:flex items-center gap-2 text-sm text-gray-500 mb-6">
+                    <span className="text-gray-900 font-semibold">Dashboard</span>
+                </nav>
+                
+                {/* Desktop Header */}
+                <div className="hidden md:flex justify-between items-center">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+                        <p className="text-gray-600">Welcome back, {fullName}! Manage your Arena 03 facility</p>
+                    </div>
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                        <LogoutOutlined />
+                        <span>Logout</span>
+                    </button>
                 </div>
-                <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                <LogoutOutlined />
-                <span>Logout</span>
-                </button>
             </div>
 
             <Stats data={{ bookings, payments, users }} />

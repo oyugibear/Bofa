@@ -7,6 +7,7 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined
 } from '@ant-design/icons'
+import { Spin, message as antMessage } from 'antd'
 import Link from 'next/link'
 import SideMenu from '../../../components/admin/SideMenu'
 import GeneralSettings from '../../../components/admin/GeneralSettings'
@@ -77,32 +78,59 @@ export default function SettingsPage() {
     setTimeout(() => setMessage(null), 5000) // Clear message after 5 seconds
   }
 
+  if (loading) {
+    return (
+      <div className='flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100'>
+        <SideMenu 
+          isMobileMenuOpen={isMobileMenuOpen}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
+        />
+        <div className='flex-1 flex items-center justify-center'>
+          <div className="text-center">
+            <Spin size="large" />
+            <p className="mt-4 text-gray-600">Loading settings...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className='flex min-h-screen bg-gray-50'>
+    <div className='flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100'>
       <SideMenu 
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
       
-      <div className='flex-1 flex flex-col'>
-        {/* Top Header for Mobile */}
-        <div className="md:hidden bg-white shadow-sm border-b border-gray-200 p-4 pl-16">
-          <h1 className="text-xl font-bold text-gray-800">Settings</h1>
+      <div className='flex-1 flex flex-col overflow-hidden'>
+        {/* Enhanced Mobile Header */}
+        <div className="md:hidden bg-white shadow-lg border-b border-gray-200 p-4 pl-16 sticky top-0 z-40">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">Settings</h1>
+              <p className="text-sm text-gray-500">System configuration</p>
+            </div>
+          </div>
         </div>
         
-        {/* Main Content */}
-        <div className='flex-1 p-4 md:p-6 overflow-x-hidden'>
-          {/* Page Header */}
-          <div className="mb-6">
-            <nav className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-              <Link href="/admin" className="hover:text-[#3A8726FF]">Admin</Link>
-              <span>/</span>
-              <span className="text-gray-900 font-medium">Settings</span>
+        {/* Enhanced Main Content */}
+        <div className='flex-1 p-4 md:p-8 overflow-y-auto'>
+          {/* Modern Page Header */}
+          <div className="mb-8">
+            {/* Breadcrumb */}
+            <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
+              <Link href="/admin" className="hover:text-[#3A8726FF] transition-colors font-medium">
+                Dashboard
+              </Link>
+              <span className="text-gray-300">/</span>
+              <span className="text-gray-900 font-semibold">Settings</span>
             </nav>
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            
+            {/* Desktop Header */}
+            <div className="hidden md:flex justify-between items-center">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-                <div className="flex items-center gap-4 mt-1">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
+                <div className="flex items-center gap-4">
                   <p className="text-gray-600">Manage facility settings and preferences</p>
                   {lastSaved && (
                     <div className="flex items-center gap-1 text-sm text-gray-500">
@@ -116,7 +144,7 @@ export default function SettingsPage() {
                 <button 
                   onClick={handleResetSettings}
                   disabled={saving || loading}
-                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-3 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
                 >
                   <ReloadOutlined className={saving ? 'animate-spin' : ''} /> 
                   {saving ? 'Resetting...' : 'Reset to Defaults'}

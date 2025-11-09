@@ -101,6 +101,11 @@ export const bookingAPI = {
         body: JSON.stringify(bookingData),
     }),
     
+    // Admin booking creation
+    createAdmin: (bookingData: any) => apiCall('/bookings/admin/create', {
+        method: 'POST',
+        body: JSON.stringify(bookingData),
+    }),
     
     // Admin functions
     getAll: () => apiCall('/bookings'), // Admin only
@@ -119,6 +124,9 @@ export const bookingAPI = {
     complete: (id: string) => apiCall(`/bookings/completeBooking/${id}`, {
         method: 'PUT',
     }),
+    
+    // Availability checking
+    getFieldAvailability: () => apiCall('/bookings/availability'),
     
 };
 

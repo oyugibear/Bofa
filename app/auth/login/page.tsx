@@ -20,6 +20,7 @@ interface FormErrors {
 }
 
 export default function LoginPage() {
+  const { handleLoginFailure } = useAuth()
   const router = useRouter()
   const toast = useToast()
   const { login: authLogin, isAuthenticated, isLoading } = useAuth()
@@ -96,13 +97,22 @@ export default function LoginPage() {
     }
 
     setLoading(true)
+    
+    // Clear any previous auth state before attempting login
+
+    
     try {
-      const response = await authAPI.login(formData.email, formData.password)
+      console.log('Starting login attempt...')
+      const response = await authAPI.login(formData.email.toLowerCase(), formData.password)
       
       if (!response.user || !response.token) {
+        console.error('Invalid login response:', { hasUser: !!response.user, hasToken: !!response.token })
+        handleLoginFailure("Login failed. Please check your credentials.")
         toast.error("Login failed. Please check your credentials.")
         return
       }
+      
+      console.log('Login API successful, storing auth data...')
       
       // Use the auth context to store user data securely
       authLogin(response.user, response.token)
@@ -118,7 +128,11 @@ export default function LoginPage() {
       }
     } catch (error) {
       console.error('Login error:', error)
-      toast.error(error instanceof Error ? error.message : 'Login failed. Please try again.')
+      const errorMessage = error instanceof Error ? error.message : 'Login failed. Please try again.'
+      
+      // Use the failure handler to properly clean up state
+      handleLoginFailure(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }

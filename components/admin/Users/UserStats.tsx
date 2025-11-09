@@ -36,9 +36,9 @@ export default function UserStats({users}: {users: any[]}) {
   ]
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
       {stats.map((stat, index) => (
-        <StatCard index={index} stat={stat} />
+        <StatCard key={index} index={index} stat={stat} />
       ))}
     </div>
   )

@@ -14,6 +14,7 @@ interface AuthContextType {
   updateUser: (userData: Partial<User>) => void
   refreshAuth: () => void
   clearError: () => void
+  handleLoginFailure: (errorMessage: string) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -85,15 +86,105 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   const login = (userData: User, userToken: string) => {
+    console.log('AuthContext.login called:', {
+      hasUser: !!userData,
+      hasToken: !!userToken,
+      userEmail: userData?.email,
+      tokenLength: userToken?.length
+    })
+    
     try {
+      // CRITICAL: Force clear all state before new login to prevent contamination
+      console.log('Clearing all previous auth state...')
+      authStorage.clearAll()
+      setToken(null)
+      setUser(null)
+      setError(null)
+      
+      // Small delay to ensure cleanup completes
+      setTimeout(() => {
+        console.log('Previous state cleared, proceeding with login...')
+      }, 10)
+      
+      // Store token first (most critical)
+      console.log('Storing token...')
       authStorage.setToken(userToken)
+      
+      // Store user data  
+      console.log('Storing user...')
       authStorage.setUser(userData)
+      
+      // Update React state
+      console.log('Updating React state...')
       setToken(userToken)
       setUser(userData)
-      setError(null) // Clear any previous errors on successful login
+      setError(null)
+      
+      // Verify storage worked with multiple checks
+      const immediateCheck = () => {
+        const storedToken = authStorage.getToken()
+        const storedUser = authStorage.getUser()
+        const isAuth = authStorage.isAuthenticated()
+        
+        console.log('Login verification (immediate):', {
+          storedToken: !!storedToken,
+          storedUser: !!storedUser,
+          isAuthenticated: isAuth,
+          tokenMatches: storedToken === userToken,
+          userMatches: storedUser?.email === userData?.email
+        })
+        
+        if (!storedToken) {
+          console.error('CRITICAL: Token not persisted immediately after storage!')
+          throw new Error('Token storage failed - not persisted')
+        }
+      }
+      
+      immediateCheck()
+      
+      // Double-check after delay
+      setTimeout(() => {
+        const storedToken = authStorage.getToken()
+        const storedUser = authStorage.getUser()
+        const isAuth = authStorage.isAuthenticated()
+        
+        console.log('Login verification (delayed):', {
+          storedToken: !!storedToken,
+          storedUser: !!storedUser,
+          isAuthenticated: isAuth,
+          tokenMatches: storedToken === userToken,
+          userMatches: storedUser?.email === userData?.email,
+          allLocalStorageKeys: Object.keys(localStorage)
+        })
+        
+        if (!storedToken && userToken) {
+          console.error('CRITICAL: Token disappeared after successful storage!')
+          // Attempt recovery
+          try {
+            console.log('Attempting token recovery...')
+            authStorage.setToken(userToken)
+            authStorage.setUser(userData)
+          } catch (recoveryError) {
+            console.error('Token recovery failed:', recoveryError)
+          }
+        }
+      }, 200)
+      
+      console.log('AuthContext.login completed successfully')
+      
     } catch (error) {
-      console.error('Error during login:', error)
-      setError('Failed to save login data')
+      console.error('AuthContext.login failed:', error)
+      
+      // Force complete cleanup on failure
+      try {
+        authStorage.clearAll()
+        setToken(null)
+        setUser(null)
+        setError('Failed to save login data')
+      } catch (cleanupError) {
+        console.error('Login cleanup failed:', cleanupError)
+      }
+      
       throw error
     }
   }
@@ -153,6 +244,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setError(null)
   }
 
+  const handleLoginFailure = (errorMessage: string) => {
+    console.log('Login failed, cleaning up state...')
+    
+    // Force clear everything on login failure to prevent contamination
+    try {
+      authStorage.clearAll()
+      setToken(null)
+      setUser(null)
+      setError(errorMessage)
+      setIsLoading(false)
+      
+      console.log('Login failure cleanup completed')
+    } catch (error) {
+      console.error('Failed to clean up after login failure:', error)
+      setError('Authentication system error')
+    }
+  }
+
   const value: AuthContextType = {
     user,
     token,
@@ -163,7 +272,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logout,
     updateUser,
     refreshAuth,
-    clearError
+    clearError,
+    handleLoginFailure
   }
 
   return (
