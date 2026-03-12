@@ -210,8 +210,9 @@ export default function FieldBooking() {
       }
       
       const bookingStartTime = dayjs(`${formattedDate} ${booking.time}`)
-      const duration = parseInt(booking.duration) || 1
-      const bookingEndTime = bookingStartTime.add(duration, 'hour')
+      // Handle fractional durations (e.g., 0.5 for 30 minutes)
+      const duration = parseFloat(booking.duration) || 1
+      const bookingEndTime = bookingStartTime.add(duration * 60, 'minutes')
       
       // Check if target time falls within the booking period
       return (targetTime.isSame(bookingStartTime) || targetTime.isAfter(bookingStartTime)) && 
@@ -282,16 +283,20 @@ export default function FieldBooking() {
           const startHour = parseInt(dayHours.open.split(':')[0])
           const endHour = parseInt(dayHours.close.split(':')[0])
           
+          // Generate 30-minute time slots
           for (let hour = startHour; hour < endHour; hour++) {
-            const timeString = `${hour.toString().padStart(2, '0')}:00`
+            // Add :00 slot
+            const timeString00 = `${hour.toString().padStart(2, '0')}:00`
+            const isBooked00 = isTimeSlotBooked(date, fieldId, timeString00)
             
-            // Check if this time slot is already booked
-            const isBooked = isTimeSlotBooked(date, fieldId, timeString)
+            // Add :30 slot
+            const timeString30 = `${hour.toString().padStart(2, '0')}:30`
+            const isBooked30 = isTimeSlotBooked(date, fieldId, timeString30)
             
             // Calculate price based on field pricing and time
             let price = selectedFieldData.price_per_hour
             
-            // Peak hours pricing
+            // Peak hours pricing (5 PM to 9 PM)
             const isPeakHour = hour >= 17 && hour <= 21
             if (isPeakHour && selectedFieldData.peak_hour_price) {
               price = selectedFieldData.peak_hour_price
@@ -304,8 +309,14 @@ export default function FieldBooking() {
             }
             
             slots.push({
-              time: timeString,
-              available: !isBooked,
+              time: timeString00,
+              available: !isBooked00,
+              price: price
+            })
+            
+            slots.push({
+              time: timeString30,
+              available: !isBooked30,
               price: price
             })
           }
@@ -313,16 +324,25 @@ export default function FieldBooking() {
         
         setTimeSlots(slots)
       } else {
-        // Fallback default hours if no operating hours specified
+        // Fallback default hours if no operating hours specified (6 AM to 10 PM with 30-minute slots)
         for (let hour = 6; hour < 22; hour++) {
-          const timeString = `${hour.toString().padStart(2, '0')}:00`
+          // Add :00 slot
+          const timeString00 = `${hour.toString().padStart(2, '0')}:00`
+          const isBooked00 = isTimeSlotBooked(date, fieldId, timeString00)
           
-          // Check if this time slot is already booked
-          const isBooked = isTimeSlotBooked(date, fieldId, timeString)
+          // Add :30 slot
+          const timeString30 = `${hour.toString().padStart(2, '0')}:30`
+          const isBooked30 = isTimeSlotBooked(date, fieldId, timeString30)
           
           slots.push({
-            time: timeString,
-            available: !isBooked,
+            time: timeString00,
+            available: !isBooked00,
+            price: selectedFieldData?.price_per_hour || 2000
+          })
+          
+          slots.push({
+            time: timeString30,
+            available: !isBooked30,
             price: selectedFieldData?.price_per_hour || 2000
           })
         }
@@ -337,7 +357,9 @@ export default function FieldBooking() {
   }
 
   const durations = [
+    { value: 0.5, label: '30 Minutes', multiplier: 0.5 },
     { value: 1, label: '1 Hour', multiplier: 1 },
+    { value: 1.5, label: '1.5 Hours', multiplier: 1.4 },
     { value: 2, label: '2 Hours', multiplier: 1.8 },
     { value: 3, label: '3 Hours', multiplier: 2.5 },
   ]
@@ -402,6 +424,16 @@ export default function FieldBooking() {
     }[bookingType]
     
     return Math.round(basePrice * typeMultiplier)
+  }
+
+  const formatDuration = (duration: number) => {
+    if (duration === 0.5) {
+      return "30 Minutes"
+    } else if (duration === 1) {
+      return "1 Hour"
+    } else {
+      return `${duration} Hours`
+    }
   }
 
   const validateBookingForm = (): boolean => {
@@ -685,7 +717,7 @@ export default function FieldBooking() {
             {selectedTime && (
               <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
                 <p className="text-green-800 text-xs sm:text-sm">
-                  ✅ Perfect! You've selected <strong>{selectedTime}</strong> for <strong>{duration} hour{duration > 1 ? 's' : ''}</strong>. Review your booking below.
+                  ✅ Perfect! You've selected <strong>{selectedTime}</strong> for <strong>{formatDuration(duration)}</strong>. Review your booking below.
                 </p>
               </div>
             )}
@@ -743,7 +775,7 @@ export default function FieldBooking() {
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">
                         <span className="text-gray-600 font-medium text-sm sm:text-base">⏱️ Duration:</span>
                         <span className="font-bold text-sm sm:text-lg text-gray-800">
-                          {duration} Hour{duration > 1 ? 's' : ''}
+                          {formatDuration(duration)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center py-2 border-b border-gray-200">

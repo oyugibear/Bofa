@@ -173,6 +173,12 @@ export interface League {
   registrationFee: number
   category: string
   level: string
+  format: string // e.g., 6-aside, 11-aside
+  ageGroup: string // e.g., U18, Open
+  type: string // e.g., Knockout, League
+  rounds: number
+  consolationRounds: number
+  gender: string // e.g., Male, Female, Mixed
   schedule?: {
     matchId: MatchTypes | string // Can be ObjectId string or populated Match object
     date: string
