@@ -37,7 +37,13 @@ export const useLeagues = () => {
             registrationFee: 25000,
             category: "adult",
             level: "semi-pro",
-            standings: [] as any
+            standings: [] as any,
+            format: "round-robin",
+            ageGroup: "18+",
+            type: "league",
+            rounds: 34,
+            consolationRounds: 0,
+            gender: "mixed"
           },
           {
             _id: "68d102884326f1e809b220e6",
@@ -54,7 +60,13 @@ export const useLeagues = () => {
             registrationFee: 15000,
             category: "youth",
             level: "amateur",
-            standings: [] as any
+            standings: [] as any,
+            format: "round-robin",
+            ageGroup: "under-18",
+            type: "league",
+            rounds: 22,
+            consolationRounds: 0,
+            gender: "mixed"
           }
         ]
         
