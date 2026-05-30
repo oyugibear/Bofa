@@ -24,6 +24,9 @@ export interface BookingDetails {
   paymentInfo?: Payment
   paymentLink?: string
   status: 'confirmed' | 'pending' | 'cancelled' | 'completed'
+  booking_type?: 'customer_booking' | 'admin_booking' | 'manager_scheduled_match'
+  payment_required?: boolean
+  payment_waived?: boolean
   postedBy?: UserType
   createdAt: string
   updatedAt: string
@@ -60,7 +63,7 @@ export interface UserType {
     passwordResetCode?: string;
     password?: string;
     role?: string;
-    team_id?: string;
+  team_id?: string;
     profile_status?: 'Pending' | 'Completed';
     status?: string;
     coaching_notes?: Array<{
@@ -145,11 +148,19 @@ export interface MatchTypes {
   homeTeam: string | TeamTypes  // Can be ObjectId string or populated Team object
   awayTeam: string | TeamTypes  // Can be ObjectId string or populated Team object
   venue: string
+  field?: string | Field
+  booking?: string | BookingDetails
   status?: string  // Changed to match schema default 'inactive'
   score?: {
     home: number
     away: number
   }
+  participants?: Array<{
+    user: string | UserType
+    team: string | TeamTypes
+    status: 'confirmed' | 'declined'
+    confirmedAt?: string
+  }>
   postedBy: string | UserType  // Can be ObjectId string or populated User object
   editedBy?: string | UserType  // Optional, can be ObjectId string or populated User object
   // Timestamps from mongoose
@@ -173,6 +184,12 @@ export interface League {
   registrationFee: number
   category: string
   level: string
+  format: string // e.g., 6-aside, 11-aside
+  ageGroup: string // e.g., U18, Open
+  type: string // e.g., Knockout, League
+  rounds: number
+  consolationRounds: number
+  gender: string // e.g., Male, Female, Mixed
   schedule?: {
     matchId: MatchTypes | string // Can be ObjectId string or populated Match object
     date: string
@@ -372,4 +389,3 @@ export interface AdminSettings {
   createdAt?: string
   updatedAt?: string
 }
-

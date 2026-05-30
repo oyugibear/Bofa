@@ -34,6 +34,13 @@ export default function LeagueModal({ isOpen, onClose, setRefresh, item, type } 
     const [startDate, setStartDate] = useState<string>(item?.startDate || '')
     const [endDate, setEndDate] = useState<string>(item?.endDate || '')
     const [numberOfTeams, setNumberOfTeams] = useState<number>(item?.numberOfTeams || 0)
+    // New fields
+    const [format, setFormat] = useState<string>(item?.format || '')
+    const [ageGroup, setAgeGroup] = useState<string>(item?.ageGroup || '')
+    const [leagueType, setLeagueType] = useState<string>(item?.type || '')
+    const [rounds, setRounds] = useState<number>(item?.rounds || 0)
+    const [consolationRounds, setConsolationRounds] = useState<number>(item?.consolationRounds || 0)
+    const [gender, setGender] = useState<string>(item?.gender || '')
 
     // Debug the API import on component mount
     React.useEffect(() => {
@@ -89,6 +96,24 @@ export default function LeagueModal({ isOpen, onClose, setRefresh, item, type } 
         if (endDate !== item?.endDate) {
             updatedData.endDate = endDate;
         }
+        if (format.trim() !== item?.format) {
+            updatedData.format = format.trim();
+        }
+        if (ageGroup.trim() !== item?.ageGroup) {
+            updatedData.ageGroup = ageGroup.trim();
+        }
+        if (leagueType.trim() !== item?.type) {
+            updatedData.type = leagueType.trim();
+        }
+        if (gender.trim() !== item?.gender) {
+            updatedData.gender = gender.trim();
+        }
+        if (rounds !== item?.rounds) {
+            updatedData.rounds = rounds;
+        }
+        if (consolationRounds !== item?.consolationRounds) {
+            updatedData.consolationRounds = consolationRounds;
+        }
 
         // Check if any changes were made
         if (Object.keys(updatedData).length === 0) {
@@ -127,6 +152,26 @@ export default function LeagueModal({ isOpen, onClose, setRefresh, item, type } 
             toast.error("Please select start and end dates")
             return
         }
+
+        if (!format.trim()) {
+            toast.error("Please select a format")
+            return
+        }
+
+        if (!ageGroup.trim()) {
+            toast.error("Please select an age group")
+            return
+        }
+
+        if (!leagueType.trim()) {
+            toast.error("Please select a league type")
+            return
+        }
+
+        if (!gender.trim()) {
+            toast.error("Please select a gender category")
+            return
+        }
         
         // Data for the new league
         const newLeagueData: Omit<League, 'id'> & { id?: string } = {
@@ -136,6 +181,12 @@ export default function LeagueModal({ isOpen, onClose, setRefresh, item, type } 
             status: status as 'active' | 'upcoming' | 'finished',
             category: category.trim(),
             level: level.trim(),
+            format: format.trim(),
+            ageGroup: ageGroup.trim(),
+            type: leagueType.trim(),
+            gender: gender.trim(),
+            rounds: rounds,
+            consolationRounds: consolationRounds,
             numberOfTeams: numberOfTeams,
             teams: [],
             matches: [], // Initialize with 0 matches
@@ -208,6 +259,32 @@ export default function LeagueModal({ isOpen, onClose, setRefresh, item, type } 
                         <FormInput type="number" label="Number of Teams" value={numberOfTeams.toString()} onChange={(e) => setNumberOfTeams(parseInt(e.target.value) || 0)} />
                         <FormInput type="number" label="Prize Pool (KSh)" value={prizePool.toString()} onChange={(e) => setPrizePool(parseInt(e.target.value) || 0)} />
                         <FormInput type="number" label="Registration Fee (KSh)" value={registrationFee.toString()} onChange={(e) => setRegistrationFee(parseInt(e.target.value) || 0)} />
+                        <FormSelect options={[
+                            { label: '6-aside', value: '6-aside' },
+                            { label: '7-aside', value: '7-aside' },
+                            { label: '11-aside', value: '11-aside' },
+                            { label: '5-aside', value: '5-aside' },
+                        ]} label="Format" value={format} onChange={(e) => setFormat(e.target.value)} />
+                        <FormSelect options={[
+                            { label: 'Open', value: 'Open' },
+                            { label: 'U18', value: 'U18' },
+                            { label: 'U21', value: 'U21' },
+                            { label: 'U16', value: 'U16' },
+                            { label: 'Veterans (35+)', value: 'Veterans' },
+                        ]} label="Age Group" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)} />
+                        <FormSelect options={[
+                            { label: 'League', value: 'League' },
+                            { label: 'Knockout', value: 'Knockout' },
+                            { label: 'Cup', value: 'Cup' },
+                            { label: 'Tournament', value: 'Tournament' },
+                        ]} label="Type" value={leagueType} onChange={(e) => setLeagueType(e.target.value)} />
+                        <FormSelect options={[
+                            { label: 'Male', value: 'Male' },
+                            { label: 'Female', value: 'Female' },
+                            { label: 'Mixed', value: 'Mixed' },
+                        ]} label="Gender" value={gender} onChange={(e) => setGender(e.target.value)} />
+                        <FormInput type="number" label="Rounds" value={rounds.toString()} onChange={(e) => setRounds(parseInt(e.target.value) || 0)} placeholder="Total number of rounds" />
+                        <FormInput type="number" label="Consolation Rounds" value={consolationRounds.toString()} onChange={(e) => setConsolationRounds(parseInt(e.target.value) || 0)} placeholder="Number of consolation rounds" />
                         <FormInput type="date" label="Start Date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                         <FormInput type="date" label="End Date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                     </div>
@@ -251,6 +328,32 @@ export default function LeagueModal({ isOpen, onClose, setRefresh, item, type } 
                         <FormInput type="number" label="Number of Teams" value={numberOfTeams.toString()} onChange={(e) => setNumberOfTeams(parseInt(e.target.value) || 0)} />
                         <FormInput type="number" label="Prize Pool (KSh)" value={prizePool.toString()} onChange={(e) => setPrizePool(parseInt(e.target.value) || 0)} />
                         <FormInput type="number" label="Registration Fee (KSh)" value={registrationFee.toString()} onChange={(e) => setRegistrationFee(parseInt(e.target.value) || 0)} />
+                        <FormSelect options={[
+                            { label: '6-aside', value: '6-aside' },
+                            { label: '7-aside', value: '7-aside' },
+                            { label: '11-aside', value: '11-aside' },
+                            { label: '5-aside', value: '5-aside' },
+                        ]} label="Format" value={format} onChange={(e) => setFormat(e.target.value)} />
+                        <FormSelect options={[
+                            { label: 'Open', value: 'Open' },
+                            { label: 'U18', value: 'U18' },
+                            { label: 'U21', value: 'U21' },
+                            { label: 'U16', value: 'U16' },
+                            { label: 'Veterans (35+)', value: 'Veterans' },
+                        ]} label="Age Group" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)} />
+                        <FormSelect options={[
+                            { label: 'League', value: 'League' },
+                            { label: 'Knockout', value: 'Knockout' },
+                            { label: 'Cup', value: 'Cup' },
+                            { label: 'Tournament', value: 'Tournament' },
+                        ]} label="Type" value={leagueType} onChange={(e) => setLeagueType(e.target.value)} />
+                        <FormSelect options={[
+                            { label: 'Male', value: 'Male' },
+                            { label: 'Female', value: 'Female' },
+                            { label: 'Mixed', value: 'Mixed' },
+                        ]} label="Gender" value={gender} onChange={(e) => setGender(e.target.value)} />
+                        <FormInput type="number" label="Rounds" value={rounds.toString()} onChange={(e) => setRounds(parseInt(e.target.value) || 0)} placeholder="Total number of rounds" />
+                        <FormInput type="number" label="Consolation Rounds" value={consolationRounds.toString()} onChange={(e) => setConsolationRounds(parseInt(e.target.value) || 0)} placeholder="Number of consolation rounds" />
                         <FormInput type="date" label="Start Date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                         <FormInput type="date" label="End Date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                     </div>
@@ -282,6 +385,12 @@ export default function LeagueModal({ isOpen, onClose, setRefresh, item, type } 
                         <BasicTextOutput label="Matches" value={item?.matches?.toString() || '0'} />
                         <BasicTextOutput label="Prize Pool" value={item?.prizePool ? `KSh ${item.prizePool.toLocaleString()}` : 'N/A'} />
                         <BasicTextOutput label="Registration Fee" value={item?.registrationFee ? `KSh ${item.registrationFee.toLocaleString()}` : 'N/A'} />
+                        <BasicTextOutput label="Format" value={item?.format || 'N/A'} />
+                        <BasicTextOutput label="Age Group" value={item?.ageGroup || 'N/A'} />
+                        <BasicTextOutput label="Type" value={item?.type || 'N/A'} />
+                        <BasicTextOutput label="Gender" value={item?.gender || 'N/A'} />
+                        <BasicTextOutput label="Rounds" value={item?.rounds?.toString() || '0'} />
+                        <BasicTextOutput label="Consolation Rounds" value={item?.consolationRounds?.toString() || '0'} />
                         <BasicTextOutput label="Start Date" value={item?.startDate ? new Date(item.startDate).toLocaleDateString('en-US', { 
                             year: 'numeric', 
                             month: 'long', 

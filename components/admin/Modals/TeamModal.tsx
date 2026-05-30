@@ -1,6 +1,6 @@
 import { message, Modal } from 'antd'
 import React, { useState } from 'react'
-import { bookingAPI, teamsAPI } from '@/utils/api'
+import { teamsAPI, userAPI } from '@/utils/api'
 import { useToast } from '@/components/Providers/ToastProvider'
 import BasicTextOutput from '@/components/constants/Outputs/BasicTextOutput'
 import Form from 'antd/es/form/Form'
@@ -33,7 +33,7 @@ export default function TeamModal({ isOpen, onClose, setRefresh, item, type } : 
     const [status, setStatus] = useState(item?.status || '')
     const [members, setMembers] = useState(item?.members || [])
     const [selectedMember, setSelectedMember] = useState<string>('')
-    const [captain, setCaptain] = useState<string>(item?.captain || '')
+    const [captain, setCaptain] = useState<string>(item?.captain?._id || item?.captain || '')
 
     // Debug the API import on component mount
     React.useEffect(() => {
@@ -66,12 +66,14 @@ export default function TeamModal({ isOpen, onClose, setRefresh, item, type } : 
             const updatedMembers = [...members, selectedMember]
             
             const updatedData: Partial<TeamTypes> = {
-                members: updatedMembers
+                members: updatedMembers,
+                ...(captain && { captain: captain as any })
             };
 
             try {
                 const { data } = await teamsAPI.edit(item._id, updatedData);
                 if(data){
+                    await userAPI.update(selectedMember, { team_id: item._id })
                     console.log(`Added member ${selectedMember} to team ${item._id}`);
                     toast.success("Member added to team successfully");
                     console.log('Calling setRefresh after successful member addition')
@@ -84,18 +86,26 @@ export default function TeamModal({ isOpen, onClose, setRefresh, item, type } : 
             }
         } else {
             // Handle regular team edit (name/status)
+            const normalizedMembers = members.map((member: any) => member?._id || member)
+            const updatedMembers = captain && !normalizedMembers.includes(captain)
+                ? [...normalizedMembers, captain]
+                : normalizedMembers
+
             const updatedData: Partial<TeamTypes> = {
                 name: name.trim(),
                 status: status.trim(),
-                members: members,
-                // captain: members.find((member: any) => member._id === captain)
+                members: updatedMembers as any,
+                ...(captain && { captain: captain as any })
             };
 
             try {
                 const { data } = await teamsAPI.edit(item._id, updatedData);
                 if(data){
+                    if (captain) {
+                        await userAPI.update(captain, { team_id: item._id })
+                    }
                     console.log(`Updated team ${item._id} to status: ${status}`);
-                    toast.success("Team status updated successfully");
+                    toast.success("Team updated successfully");
                     console.log('Calling setRefresh after successful team edit')
                     setRefresh(); // Trigger a refresh after updating
                     onClose();
@@ -226,11 +236,10 @@ export default function TeamModal({ isOpen, onClose, setRefresh, item, type } : 
                             { label: 'Active', value: 'active' },
                             { label: 'Inactive', value: 'inactive' },
                         ]} label="Team Status" value={status} onChange={(e) => setStatus(e.target.value)} />
-                        {/* add this later */}
-                        {/* <FormSelect options={item.members.map((member: any) => ({
+                        <FormSelect options={(item?.members || []).map((member: any) => ({
                             label: `${member.first_name} ${member.second_name}`,
                             value: member._id
-                        }))} label="Select Captain" value={captain} onChange={(e) => setCaptain(e.target.value)} /> */}
+                        }))} label="Team Captain" value={captain} onChange={(e) => setCaptain(e.target.value)} placeholder="Choose a captain" />
 
                     </div>
                 </div>

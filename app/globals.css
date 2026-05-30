@@ -51,6 +51,78 @@
 }
 
 /* Mobile Calendar Optimization */
+.booking-calendar-shell {
+  overflow: hidden;
+  border-radius: 0.5rem;
+  border: 1px solid #edf2e9;
+  background: #fff;
+}
+
+.booking-calendar .ant-picker-panel {
+  border-top: 0 !important;
+}
+
+.booking-calendar .ant-picker-calendar-header {
+  padding: 12px 12px 8px;
+}
+
+.booking-calendar .ant-picker-content th {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+  padding-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.booking-calendar .ant-picker-cell {
+  padding: 3px !important;
+}
+
+.booking-calendar .ant-picker-cell-inner {
+  border-radius: 8px !important;
+  height: 34px !important;
+  line-height: 34px !important;
+  min-width: 34px !important;
+}
+
+.booking-calendar .ant-picker-cell-in-view.ant-picker-cell-selected .ant-picker-cell-inner,
+.booking-calendar .ant-picker-cell-in-view.ant-picker-cell-today .ant-picker-cell-inner::before {
+  border-color: #3A8726FF !important;
+}
+
+.booking-calendar .ant-picker-cell-in-view.ant-picker-cell-selected .ant-picker-cell-inner {
+  background: #3A8726FF !important;
+  color: #fff !important;
+}
+
+.booking-calendar .ant-picker-cell-disabled .ant-picker-cell-inner {
+  color: #c7cbd1 !important;
+}
+
+@media (max-width: 640px) {
+  .booking-calendar .ant-picker-calendar-header {
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .booking-calendar .ant-picker-calendar-header .ant-select {
+    min-width: 0 !important;
+  }
+
+  .booking-calendar .ant-picker-cell {
+    height: 36px;
+    padding: 1px !important;
+  }
+
+  .booking-calendar .ant-picker-cell-inner {
+    height: 30px !important;
+    line-height: 30px !important;
+    min-width: 30px !important;
+    font-size: 12px;
+  }
+}
+
 .mobile-calendar .ant-picker-calendar {
   font-size: 14px;
 }

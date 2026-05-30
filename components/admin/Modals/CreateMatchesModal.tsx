@@ -1,10 +1,10 @@
-import { message, Modal } from 'antd'
-import React, { useState } from 'react'
-import { bookingAPI, matchesAPI, paymentAPI, leaguesAPI } from '@/utils/api'
+import { Modal } from 'antd'
+import React, { useEffect, useMemo, useState } from 'react'
+import { fieldAPI, leaguesAPI, matchesAPI } from '@/utils/api'
 import { useToast } from '@/components/Providers/ToastProvider'
 import BasicTextOutput from '@/components/constants/Outputs/BasicTextOutput'
 import { FormInput, FormSelect } from '@/components/constants'
-import { MatchTypes, TeamTypes } from '@/types'
+import { Field, MatchTypes } from '@/types'
 import { User } from '@/lib/auth'
 
 interface MatchModalProps {
@@ -19,11 +19,39 @@ interface MatchModalProps {
 export default function CreateMatchesModal({ isOpen, onClose, setRefresh, item, type, user } : MatchModalProps) {
 
     const toast = useToast()
+
+    const todayInEat = () => new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Africa/Nairobi',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(new Date())
+
+    const formatDateForInput = (value?: string) => {
+        if (!value) return todayInEat()
+        const date = new Date(value)
+        return Number.isNaN(date.getTime()) ? todayInEat() : date.toISOString().split('T')[0]
+    }
+
+    const timeOptions = useMemo(() => {
+        const options: { label: string; value: string }[] = []
+        for (let minutes = 6 * 60; minutes <= 21 * 60; minutes += 30) {
+            const hours = Math.floor(minutes / 60)
+            const mins = minutes % 60
+            const value = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
+            options.push({ label: value, value })
+        }
+        return options
+    }, [])
     
     // useState hooks for MatchTypes properties
     const [numberOfMatches, setNumberOfMatches] = useState<number>(1)
-    const [startDate, setStartDate] = useState<string>(item?.startDate || '')
-    const [venue, setVenue] = useState<string>(item?.venue || 'Main Field')
+    const [startDate, setStartDate] = useState<string>(formatDateForInput(item?.startDate))
+    const [startTime, setStartTime] = useState<string>('10:00')
+    const [venue, setVenue] = useState<string>(item?.venue || '')
+    const [fields, setFields] = useState<Field[]>([])
+    const [selectedField, setSelectedField] = useState<string>('')
+    const [loadingFields, setLoadingFields] = useState(false)
     
     // Original match properties (for edit mode)
     const [date, setDate] = useState<string>(item?.date || '')
@@ -37,6 +65,38 @@ export default function CreateMatchesModal({ isOpen, onClose, setRefresh, item, 
     })
     const [postedBy, setPostedBy] = useState<string>(item?.postedBy || '')
     const [editedBy, setEditedBy] = useState<string>(item?.editedBy || '')
+
+    const activeFields = useMemo(() => (
+        fields.filter((field) => field.status === 'active' && field.isAvailable !== false)
+    ), [fields])
+
+    const selectedFieldData = activeFields.find((field) => field._id === selectedField)
+
+    useEffect(() => {
+        if (!isOpen) return
+
+        const fetchFields = async () => {
+            setLoadingFields(true)
+            try {
+                const response = await fieldAPI.getAll()
+                const fieldData = response.data || response || []
+                setFields(fieldData)
+            } catch (error) {
+                console.error('Error fetching fields for match scheduling:', error)
+                toast.error('Failed to load fields')
+            } finally {
+                setLoadingFields(false)
+            }
+        }
+
+        fetchFields()
+    }, [isOpen])
+
+    useEffect(() => {
+        if (!selectedField && activeFields.length > 0) {
+            setSelectedField(activeFields[0]._id)
+        }
+    }, [activeFields, selectedField])
 
     // Function to handle editing match status
     const handleEditStatus = async () => {
@@ -91,12 +151,20 @@ export default function CreateMatchesModal({ isOpen, onClose, setRefresh, item, 
                 return;
             }
 
-            // Call the generate matches API
+            const effectiveField = selectedField || activeFields[0]?._id
+            const effectiveFieldName = activeFields.find((field) => field._id === effectiveField)?.name
+            const effectiveDate = startDate || todayInEat()
+            const effectiveTime = startTime || '10:00'
+
             const response = await leaguesAPI.generateMatches({
                 leagueId,
                 numberOfMatches,
+                startDate: effectiveDate,
+                startTime: effectiveTime,
                 postedBy: user?._id,
-                venue
+                venue: venue.trim() || effectiveFieldName || 'Main Field',
+                ...(effectiveField && { field: effectiveField }),
+                intervalMinutes: 60
             });
 
             console.log('Matches generated successfully:', response);
@@ -119,22 +187,21 @@ export default function CreateMatchesModal({ isOpen, onClose, setRefresh, item, 
     if(type == "Add"){
         return (
             <Modal
-                title="Create League Matches"
+                title="Schedule League Matches"
                 closable={{ 'aria-label': 'Custom Close Button' }}
                 open={isOpen}
                 onOk={handleCreateMatches}
                 onCancel={onClose}
-                width={600}
+                width={760}
             >
-                <div className='flex flex-col gap-4'>
-                    <p>Configure match generation for the league:</p>
-                    
-                    {/* Match Configuration Section */}
-                    <div className='bg-gray-50 p-4 rounded-lg'>
-                        <h4 className='font-medium mb-3'>League Information</h4>
-                        <div className='text-sm text-gray-600'>
-                            <div>League: {item?.currentLeague?.title || item?.title || 'Unknown League'}</div>
-                            <div>Available Teams: {item?.teams?.length || 0}</div>
+                <div className='flex flex-col gap-5'>
+                    <div className='rounded-lg border border-gray-200 bg-white p-4'>
+                        <div className='flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between'>
+                            <div>
+                                <div className='text-sm text-gray-500'>League</div>
+                                <div className='font-semibold text-gray-900'>{item?.currentLeague?.title || item?.title || 'Unknown League'}</div>
+                            </div>
+                            <div className='text-sm text-gray-600'>{item?.teams?.length || 0} teams available</div>
                         </div>
                     </div>
 
@@ -148,25 +215,46 @@ export default function CreateMatchesModal({ isOpen, onClose, setRefresh, item, 
                             max="100"
                             placeholder="Enter number of matches"
                         />
-                        
+
+                        <FormSelect
+                            label="Field"
+                            value={selectedField}
+                            onChange={(e) => setSelectedField(e.target.value)}
+                            placeholder={loadingFields ? 'Loading fields...' : 'Use default field'}
+                            options={activeFields.map((field) => ({
+                                label: field.name,
+                                value: field._id
+                            }))}
+                            disabled={loadingFields || activeFields.length === 0}
+                        />
+
+                        <FormInput
+                            type='date'
+                            label='Start Date'
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            min={todayInEat()}
+                        />
+
+                        <FormSelect
+                            label="Start Time"
+                            value={startTime}
+                            onChange={(e) => setStartTime(e.target.value)}
+                            options={timeOptions}
+                        />
+
                         <FormInput 
-                            label='Default Venue' 
+                            label='Venue Name' 
                             value={venue} 
                             onChange={(e) => setVenue(e.target.value)}
-                            placeholder="Enter default venue for matches"
+                            placeholder={selectedFieldData?.name || 'Main Field'}
                         />
                     </div>
 
-                    {/* Match Preview Section */}
-                    <div className='bg-blue-50 p-4 rounded-lg'>
-                        <h4 className='font-medium mb-2 text-blue-900'>Match Generation Preview</h4>
-                        <div className='text-sm text-blue-800'>
-                            <div>
-                                Will generate {numberOfMatches} matches with random team pairings from the available teams.
-                            </div>
-                            <div className='mt-1'>
-                                Matches will be automatically scheduled with appropriate time intervals.
-                            </div>
+                    <div className='rounded-lg border border-emerald-100 bg-emerald-50 p-4'>
+                        <div className='text-sm font-semibold text-emerald-950'>Manager scheduled booking</div>
+                        <div className='mt-1 text-sm text-emerald-800'>
+                            {numberOfMatches} one-hour match{numberOfMatches === 1 ? '' : 'es'} starting {startDate || todayInEat()} at {startTime || '10:00'} on {selectedFieldData?.name || 'the default field'}.
                         </div>
                     </div>
                 </div>

@@ -91,7 +91,7 @@ const PaymentStats = ({ payments, loading }: { payments: Payment[], loading: boo
 export default function PaymentsPage() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [payments, setPayments] = useState([]) // Replace with actual data fetching logic
+  const [payments, setPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
   const [componentsReady, setComponentsReady] = useState(false)
   const [refresh, setRefresh] = useState(false)
@@ -103,7 +103,12 @@ export default function PaymentsPage() {
       try {
         const paymentsResponse = await paymentAPI.getAll()
         console.log("Payments fetched:", paymentsResponse.data)
-        setPayments(paymentsResponse.data)
+        const sortedPayments = [...(paymentsResponse.data || [])].sort((a: Payment, b: Payment) => {
+          const bDate = new Date(b.payment_date || b.createdAt || b.updatedAt || 0).getTime()
+          const aDate = new Date(a.payment_date || a.createdAt || a.updatedAt || 0).getTime()
+          return bDate - aDate
+        })
+        setPayments(sortedPayments)
       } catch (error) {
         console.error('Error fetching Payments:', error)
         message.error('Failed to load payments data')

@@ -17,13 +17,14 @@ import { message, Modal as AntModal, Spin } from 'antd'
 import SideMenu from '../../components/admin/SideMenu'
 import { useUser, usePermissions, RoleGuard } from '../../hooks/useUser'
 import { withAuth, useAuth } from '../../contexts/AuthContext'
-import { BookingDetails, Payment, UserType } from '@/types'
-import { bookingAPI, paymentAPI, userAPI } from '@/utils/api'
+import { BookingDetails, Field, Payment, UserType } from '@/types'
+import { bookingAPI, fieldAPI, paymentAPI, userAPI } from '@/utils/api'
 import Stats from '@/components/admin/Stats'
 import Controls from '@/components/admin/Controls'
 import TodayOverview from '@/components/admin/TodayOverview'
 import AlertsCenter from '@/components/admin/AlertsCenter'
 import RecentActivities from '@/components/admin/RecentActivities'
+import BookingCalendar from '@/components/admin/BookingCalendar'
 
 // Modal Component
 const Modal = ({ isOpen, onClose, type, children }: any) => {
@@ -65,6 +66,7 @@ export default function AdminPage() {
     const [bookings, setBookings] = useState<BookingDetails[]>([])
     const [payments, setPayments] = useState<Payment[]>([])
     const [users, setUsers] = useState<UserType[]>([])
+    const [fields, setFields] = useState<Field[]>([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -72,14 +74,16 @@ export default function AdminPage() {
         const fetchData = async () => {
             setLoading(true)
             try {
-                const [bookingsData, paymentsData, usersData] = await Promise.all([
+                const [bookingsData, paymentsData, usersData, fieldsData] = await Promise.all([
                     bookingAPI.getAll(),
                     paymentAPI.getAll(),
-                    userAPI.getAll()
+                    userAPI.getAll(),
+                    fieldAPI.getAll()
                 ])
                 setBookings(bookingsData.data)
                 setPayments(paymentsData.data)
                 setUsers(usersData.data)
+                setFields(fieldsData.data || [])
 
                 console.log('Bookings:', bookingsData)
                 console.log('Payments:', paymentsData)
@@ -221,6 +225,9 @@ export default function AdminPage() {
             </div>
             
             <Controls setShowModal={setShowModal} setModalType={setModalType} />
+            <div className="mb-6">
+                <BookingCalendar bookings={bookings} fields={fields} />
+            </div>
             <RecentActivities data={{ bookings, payments, users }} />
             </div>
         </div>
@@ -287,4 +294,3 @@ export default function AdminPage() {
         </div>
     )
 }
-

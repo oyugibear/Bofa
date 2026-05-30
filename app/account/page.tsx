@@ -20,13 +20,16 @@ import {
   CreditCardOutlined,
   SettingOutlined,
   LogoutOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  TeamOutlined,
+  SendOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { useAuth } from '../../contexts/AuthContext'
 import { useUser } from '../../hooks/useUser'
-import { Activity, Booking, UserProfile, Payment } from '@/types'
-import { bookingAPI, paymentAPI, userAPI } from '@/utils/api'
+import { Activity, Booking, UserProfile, Payment, TeamTypes, MatchTypes, UserType } from '@/types'
+import { bookingAPI, matchesAPI, paymentAPI, teamsAPI, userAPI } from '@/utils/api'
 import { generateReceiptPDF } from '@/utils/receiptGenerator'
 import StatsCards from '@/components/constants/Cards/StatsCards'
 
@@ -45,6 +48,7 @@ export default function AccountPage() {
     try {
       await loadBookings()
       await loadPayments()
+      await loadTeam()
       message.success('Account data refreshed')
     } catch (error) {
       console.error('Error refreshing data:', error)
@@ -69,6 +73,10 @@ export default function AccountPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [activities, setActivities] = useState<Activity[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
+  const [team, setTeam] = useState<TeamTypes | null>(null)
+  const [teamLoading, setTeamLoading] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteLoading, setInviteLoading] = useState(false)
   const [userStats, setUserStats] = useState({
     totalBookings: 0,
     totalSpent: 0,
@@ -110,6 +118,7 @@ export default function AccountPage() {
       try {
         await loadBookings()
         await loadPayments()
+        await loadTeam()
       } catch (error) {
         console.error('Error loading user data:', error)
         message.error('Failed to load account data')
@@ -164,6 +173,21 @@ export default function AccountPage() {
       }
     } catch (error) {
       console.error('Error loading payments:', error)
+    }
+  }
+
+  const loadTeam = async () => {
+    if (!currentUser?._id) return
+
+    setTeamLoading(true)
+    try {
+      const response = await teamsAPI.getManagedTeam()
+      setTeam(response.data || null)
+    } catch (error) {
+      console.log('No team available for account:', error)
+      setTeam(null)
+    } finally {
+      setTeamLoading(false)
     }
   }
 
@@ -443,6 +467,72 @@ export default function AccountPage() {
       case 'cancelled': return 'red'
       case 'completed': return 'blue'
       default: return 'default'
+    }
+  }
+
+  const getEntityId = (value: any) => typeof value === 'string' ? value : value?._id || ''
+  const isTeamCaptain = !!team && getEntityId(team.captain) === currentUser?._id
+
+  const upcomingTeamMatches = (team?.matches || []).filter((match: MatchTypes) => {
+    const status = String(match.status || '').toLowerCase()
+    const matchDate = match.date ? new Date(match.date) : null
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    return status !== 'finished' && status !== 'cancelled' && (!matchDate || matchDate >= today)
+  }).sort((a: MatchTypes, b: MatchTypes) => {
+    const aDate = new Date(`${a.date || ''} ${a.time || '00:00'}`).getTime()
+    const bDate = new Date(`${b.date || ''} ${b.time || '00:00'}`).getTime()
+    return (Number.isNaN(aDate) ? 0 : aDate) - (Number.isNaN(bDate) ? 0 : bDate)
+  })
+
+  const getMatchParticipation = (match: MatchTypes) => (
+    match.participants?.find((participant) => getEntityId(participant.user) === currentUser?._id)
+  )
+
+  const handleInviteMember = async () => {
+    const email = inviteEmail.trim().toLowerCase()
+
+    if (!team?._id || !isTeamCaptain) {
+      message.error('Only team captains can invite members')
+      return
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      message.error('Please enter a valid email address')
+      return
+    }
+
+    setInviteLoading(true)
+    try {
+      await teamsAPI.inviteMember(team._id, email)
+      message.success('Team invitation sent')
+      setInviteEmail('')
+      await loadTeam()
+    } catch (error) {
+      console.error('Error inviting team member:', error)
+      message.error(error instanceof Error ? error.message : 'Failed to send invitation')
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
+  const handleParticipation = async (matchId: string, status: 'confirmed' | 'declined') => {
+    try {
+      const response = await matchesAPI.confirmParticipation(matchId, status)
+      const updatedMatch = response.data
+
+      setTeam(prev => prev ? {
+        ...prev,
+        matches: (prev.matches || []).map((match) => (
+          match._id === matchId ? updatedMatch : match
+        ))
+      } : prev)
+
+      message.success(status === 'confirmed' ? 'Participation confirmed' : 'Participation declined')
+    } catch (error) {
+      console.error('Error updating participation:', error)
+      message.error(error instanceof Error ? error.message : 'Failed to update participation')
     }
   }
 
@@ -748,6 +838,151 @@ export default function AccountPage() {
                 </div>
               </div>
             </TabPane>
+
+            {team && (
+              <TabPane
+                tab={
+                  <span className="flex items-center gap-1 text-sm sm:gap-2 text-black hover:text-green-800">
+                    <span>My Team</span>
+                    <div className='bg-green-100 text-xs font-semibold px-2 py-2 rounded-full'>
+                      {team.members?.length || 0}
+                    </div>
+                  </span>
+                }
+                key="team"
+              >
+                <div className="space-y-6 my-8 md:mx-2">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-semibold heading-gradient mb-2">
+                        {team.name}
+                      </h2>
+                      <p className="text-gray-600 text-sm">
+                        View your roster and confirm participation for upcoming matches.
+                      </p>
+                    </div>
+
+                    {isTeamCaptain && (
+                      <div className="w-full lg:max-w-md rounded-xl border border-green-100 bg-green-50 p-4">
+                        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-green-900">
+                          <TeamOutlined />
+                          Captain Tools
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Input
+                            type="email"
+                            value={inviteEmail}
+                            onChange={(event) => setInviteEmail(event.target.value)}
+                            placeholder="teammate@email.com"
+                            prefix={<MailOutlined />}
+                          />
+                          <Button
+                            type="primary"
+                            icon={<SendOutlined />}
+                            loading={inviteLoading}
+                            onClick={handleInviteMember}
+                            className="bg-[#3A8726FF]"
+                          >
+                            Invite
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6">
+                    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                      <div className="mb-4 flex items-center justify-between">
+                        <div>
+                          <h3 className="font-semibold text-gray-900">Upcoming Matches</h3>
+                          <p className="text-sm text-gray-500">Confirm whether you can play.</p>
+                        </div>
+                        {teamLoading && <ReloadOutlined className="animate-spin text-gray-400" />}
+                      </div>
+
+                      {upcomingTeamMatches.length === 0 ? (
+                        <div className="rounded-lg bg-gray-50 p-8 text-center">
+                          <CalendarOutlined className="mb-3 text-2xl text-gray-400" />
+                          <h4 className="font-medium text-gray-800">No upcoming matches</h4>
+                          <p className="text-sm text-gray-500">Scheduled team matches will appear here.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {upcomingTeamMatches.map((match: MatchTypes) => {
+                            const participation = getMatchParticipation(match)
+                            const homeTeamName = typeof match.homeTeam === 'string' ? 'Home Team' : match.homeTeam?.name
+                            const awayTeamName = typeof match.awayTeam === 'string' ? 'Away Team' : match.awayTeam?.name
+                            const fieldName = typeof match.field === 'string' ? match.venue : match.field?.name || match.venue
+
+                            return (
+                              <div key={match._id} className="rounded-lg border border-gray-200 p-4">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                  <div>
+                                    <div className="font-semibold text-gray-900">
+                                      {homeTeamName} vs {awayTeamName}
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap gap-3 text-sm text-gray-600">
+                                      <span><CalendarOutlined /> {match.date ? new Date(match.date).toLocaleDateString() : 'Date TBA'}</span>
+                                      <span><ClockCircleOutlined /> {match.time || 'Time TBA'}</span>
+                                      <span><TeamOutlined /> {fieldName || 'Venue TBA'}</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-col gap-2 sm:items-end">
+                                    <Tag color={participation?.status === 'confirmed' ? 'green' : participation?.status === 'declined' ? 'red' : 'default'}>
+                                      {participation?.status ? participation.status.toUpperCase() : 'NOT CONFIRMED'}
+                                    </Tag>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="small"
+                                        type="primary"
+                                        icon={<CheckCircleOutlined />}
+                                        className="bg-[#3A8726FF]"
+                                        onClick={() => match._id && handleParticipation(match._id, 'confirmed')}
+                                      >
+                                        Confirm
+                                      </Button>
+                                      <Button
+                                        size="small"
+                                        danger
+                                        icon={<CloseCircleOutlined />}
+                                        onClick={() => match._id && handleParticipation(match._id, 'declined')}
+                                      >
+                                        Decline
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                      <h3 className="mb-4 font-semibold text-gray-900">Team Members</h3>
+                      <div className="space-y-3">
+                        {(team.members || []).map((member: UserType) => (
+                          <div key={member._id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
+                            <div className="flex items-center gap-3">
+                              <Avatar icon={<UserOutlined />} />
+                              <div>
+                                <div className="font-medium text-gray-900">
+                                  {member.first_name} {member.second_name}
+                                </div>
+                                <div className="text-xs text-gray-500">{member.email}</div>
+                              </div>
+                            </div>
+                            {member._id === getEntityId(team.captain) && <Tag color="gold">Captain</Tag>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TabPane>
+            )}
 
             {/* Payment History */}
             <TabPane 

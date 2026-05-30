@@ -4,11 +4,14 @@ import { adminAPI } from '@/utils/api'
 import { SecuritySettingsData } from '@/types'
 
 interface SecuritySettingsProps {
+  initialData?: SecuritySettingsData
   onSave?: (data: SecuritySettingsData) => void
+  onPasswordChanged?: () => void
+  onError?: (message: string) => void
   isLoading?: boolean
 }
 
-const SecuritySettings: React.FC<SecuritySettingsProps> = ({ onSave, isLoading: externalLoading }) => {
+const SecuritySettings: React.FC<SecuritySettingsProps> = ({ initialData, onSave, onPasswordChanged, onError, isLoading: externalLoading }) => {
   const [formData, setFormData] = useState<SecuritySettingsData>({
     twoFactorAuth: true,
     loginNotifications: true,
@@ -33,8 +36,14 @@ const SecuritySettings: React.FC<SecuritySettingsProps> = ({ onSave, isLoading: 
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
+    if (initialData) {
+      setFormData(initialData)
+      setLoading(false)
+      return
+    }
+
     loadSettings()
-  }, [])
+  }, [initialData])
 
   const loadSettings = async () => {
     try {
@@ -45,6 +54,7 @@ const SecuritySettings: React.FC<SecuritySettingsProps> = ({ onSave, isLoading: 
       }
     } catch (error) {
       console.error('Error loading security settings:', error)
+      onError?.('Failed to load security settings')
     } finally {
       setLoading(false)
     }
@@ -120,6 +130,7 @@ const SecuritySettings: React.FC<SecuritySettingsProps> = ({ onSave, isLoading: 
       }
     } catch (error) {
       console.error('Error saving security settings:', error)
+      onError?.('Failed to save security settings')
     } finally {
       setSaving(false)
     }
@@ -130,9 +141,10 @@ const SecuritySettings: React.FC<SecuritySettingsProps> = ({ onSave, isLoading: 
 
     try {
       setChangingPassword(true)
-      // Note: This would typically call a separate password change endpoint
-      // For now, we'll just simulate the API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await adminAPI.changePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      })
       
       // Clear password fields after successful change
       setPasswordData({
@@ -141,10 +153,11 @@ const SecuritySettings: React.FC<SecuritySettingsProps> = ({ onSave, isLoading: 
         confirmPassword: ''
       })
       
-      // Show success message (this would typically be handled by parent component)
-      console.log('Password changed successfully')
+      onPasswordChanged?.()
     } catch (error) {
       console.error('Error changing password:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to change password'
+      onError?.(errorMessage)
     } finally {
       setChangingPassword(false)
     }

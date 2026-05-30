@@ -7,7 +7,7 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined
 } from '@ant-design/icons'
-import { Spin, message as antMessage } from 'antd'
+import { Spin } from 'antd'
 import Link from 'next/link'
 import SideMenu from '../../../components/admin/SideMenu'
 import GeneralSettings from '../../../components/admin/GeneralSettings'
@@ -25,7 +25,6 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [hasChanges, setHasChanges] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   // Load settings on component mount
@@ -39,7 +38,6 @@ export default function SettingsPage() {
       const response = await adminAPI.getSettings()
       if (response.data) {
         setSettings(response.data)
-        setHasChanges(false)
       }
     } catch (error) {
       console.error('Error loading settings:', error)
@@ -49,8 +47,12 @@ export default function SettingsPage() {
     }
   }
 
-  const handleSectionSave = (sectionName: string, data: any) => {
-    setHasChanges(true)
+  const handleSectionSave = (sectionKey: keyof Pick<AdminSettings, 'generalSettings' | 'fieldSettings' | 'paymentSettings' | 'notificationSettings' | 'securitySettings'>, sectionName: string, data: any) => {
+    setSettings(prev => prev ? {
+      ...prev,
+      [sectionKey]: data,
+      updatedAt: new Date().toISOString()
+    } : prev)
     setLastSaved(new Date())
     showMessage('success', `${sectionName} updated successfully`)
   }
@@ -62,8 +64,13 @@ export default function SettingsPage() {
 
     try {
       setSaving(true)
-      await adminAPI.resetSettings()
-      await loadSettings() // Reload settings after reset
+      const response = await adminAPI.resetSettings()
+      if (response.data) {
+        setSettings(response.data)
+      } else {
+        await loadSettings()
+      }
+      setLastSaved(new Date())
       showMessage('success', 'Settings reset to defaults successfully')
     } catch (error) {
       console.error('Error resetting settings:', error)
@@ -171,24 +178,35 @@ export default function SettingsPage() {
 
           {/* Settings Sections */}
           <GeneralSettings 
-            onSave={(data) => handleSectionSave('General Settings', data)}
-            isLoading={loading}
+            initialData={settings?.generalSettings}
+            onSave={(data) => handleSectionSave('generalSettings', 'General Settings', data)}
+            onError={(text) => showMessage('error', text)}
+            isLoading={loading && !settings}
           />
           <FieldSettings 
-            onSave={(data) => handleSectionSave('Field Settings', data)}
-            isLoading={loading}
+            initialData={settings?.fieldSettings}
+            onSave={(data) => handleSectionSave('fieldSettings', 'Field Settings', data)}
+            onError={(text) => showMessage('error', text)}
+            isLoading={loading && !settings}
           />
           <PaymentSettings 
-            onSave={(data) => handleSectionSave('Payment Settings', data)}
-            isLoading={loading}
+            initialData={settings?.paymentSettings}
+            onSave={(data) => handleSectionSave('paymentSettings', 'Payment Settings', data)}
+            onError={(text) => showMessage('error', text)}
+            isLoading={loading && !settings}
           />
           <NotificationSettings 
-            onSave={(data) => handleSectionSave('Notification Settings', data)}
-            isLoading={loading}
+            initialData={settings?.notificationSettings}
+            onSave={(data) => handleSectionSave('notificationSettings', 'Notification Settings', data)}
+            onError={(text) => showMessage('error', text)}
+            isLoading={loading && !settings}
           />
           <SecuritySettings 
-            onSave={(data) => handleSectionSave('Security Settings', data)}
-            isLoading={loading}
+            initialData={settings?.securitySettings}
+            onSave={(data) => handleSectionSave('securitySettings', 'Security Settings', data)}
+            onPasswordChanged={() => showMessage('success', 'Password changed successfully')}
+            onError={(text) => showMessage('error', text)}
+            isLoading={loading && !settings}
           />
         </div>
       </div>

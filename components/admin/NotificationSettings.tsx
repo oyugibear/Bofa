@@ -4,11 +4,13 @@ import { adminAPI } from '@/utils/api'
 import { NotificationSettingsData } from '@/types'
 
 interface NotificationSettingsProps {
+  initialData?: NotificationSettingsData
   onSave?: (data: NotificationSettingsData) => void
+  onError?: (message: string) => void
   isLoading?: boolean
 }
 
-const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onSave, isLoading: externalLoading }) => {
+const NotificationSettings: React.FC<NotificationSettingsProps> = ({ initialData, onSave, onError, isLoading: externalLoading }) => {
   const [formData, setFormData] = useState<NotificationSettingsData>({
     emailNotifications: {
       newBookings: true,
@@ -27,8 +29,14 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onSave, isL
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
+    if (initialData) {
+      setFormData(initialData)
+      setLoading(false)
+      return
+    }
+
     loadSettings()
-  }, [])
+  }, [initialData])
 
   const loadSettings = async () => {
     try {
@@ -39,6 +47,7 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onSave, isL
       }
     } catch (error) {
       console.error('Error loading notification settings:', error)
+      onError?.('Failed to load notification settings')
     } finally {
       setLoading(false)
     }
@@ -96,6 +105,7 @@ const NotificationSettings: React.FC<NotificationSettingsProps> = ({ onSave, isL
       }
     } catch (error) {
       console.error('Error saving notification settings:', error)
+      onError?.('Failed to save notification settings')
     } finally {
       setSaving(false)
     }

@@ -1,293 +1,380 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
-import { Calendar, Badge, Card, Typography, Modal, Tooltip, Tag } from 'antd'
+import React, { useMemo, useState } from 'react'
+import { Calendar, Card, Modal, Progress, Tag, Tooltip, Typography } from 'antd'
 import type { CalendarProps } from 'antd'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
-import { BookingDetails } from '@/types'
-import { ClockCircleOutlined, UserOutlined, EnvironmentOutlined } from '@ant-design/icons'
+import { BookingDetails, Field } from '@/types'
+import { CalendarOutlined, ClockCircleOutlined, EnvironmentOutlined, UserOutlined } from '@ant-design/icons'
 
 const { Title, Text } = Typography
 
 interface BookingCalendarProps {
   bookings: BookingDetails[]
+  fields?: Field[]
 }
 
 interface BookingEvent {
   id: string
   title: string
   time: string
+  duration: number
   clientName: string
-  bookedBy?: string
+  fieldId?: string
+  fieldName: string
   status: string
-  service: string
+  paymentStatus?: string
 }
 
-const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookings }) => {
-  const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs())
-  const [isModalVisible, setIsModalVisible] = useState(false)
-  const [selectedBookings, setSelectedBookings] = useState<BookingEvent[]>([])
+interface DayAvailability {
+  totalSlots: number
+  heldSlots: number
+  availableSlots: number
+  utilization: number
+  events: BookingEvent[]
+  fieldBreakdown: Array<{
+    fieldName: string
+    availableSlots: number
+    totalSlots: number
+  }>
+}
 
-  // Debug: Check if we're receiving bookings
-  console.log('BookingCalendar component received bookings:', bookings)
+const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
 
-  // Group bookings by date
-  const bookingsByDate = useMemo(() => {
-    const grouped: { [key: string]: BookingEvent[] } = {}
-    
-    console.log('Processing bookings for calendar:', bookings.length, bookings)
-    
-    // Add a test booking for today to see if rendering works
-    const testBooking = {
-      _id: 'test-booking',
-      date_requested: dayjs().format('YYYY-MM-DD'),
-      time: '10:00',
-      team_name: 'Test Booking',
-      client: { first_name: 'Test', second_name: 'User', email: 'test@test.com' },
-      status: 'confirmed',
-      field: { name: 'Test Field' }
-    }
-    
-    // Add test booking to the array temporarily
-    const allBookings = bookings.length === 0 ? [testBooking] : bookings
-    console.log('Using bookings (with test if empty):', allBookings)
-    
-    allBookings.forEach(booking => {
-      console.log('Processing booking:', booking)
-      const bookingDate = dayjs(booking.date_requested).format('YYYY-MM-DD')
-      console.log('Booking date formatted:', bookingDate)
-      const bookingEvent: BookingEvent = {
-        id: booking._id,
-        title: booking.team_name || 'Field Booking',
-        time: booking.time || 'No time specified',
-        clientName: booking.client?.first_name && booking.client?.second_name 
-          ? `${booking.client.first_name} ${booking.client.second_name}`
-          : booking.client?.email || 'Unknown Client',
-        bookedBy: (booking as any).postedBy?.first_name && (booking as any).postedBy?.second_name
-          ? `${(booking as any).postedBy.first_name} ${(booking as any).postedBy.second_name}`
-          : 'System',
-        status: booking.status || 'pending',
-        service: booking.team_name || booking.field?.name || 'Field Booking'
-      }
-      
-      if (!grouped[bookingDate]) {
-        grouped[bookingDate] = []
-      }
-      grouped[bookingDate].push(bookingEvent)
-    })
-    
-    // Sort bookings by time for each date
-    Object.keys(grouped).forEach(date => {
-      grouped[date].sort((a, b) => {
-        const timeA = dayjs(`2000-01-01 ${a.time}`, 'YYYY-MM-DD HH:mm')
-        const timeB = dayjs(`2000-01-01 ${b.time}`, 'YYYY-MM-DD HH:mm')
-        return timeA.isBefore(timeB) ? -1 : 1
-      })
-    })
-    
-    console.log('Final grouped bookings:', grouped)
-    return grouped
-  }, [bookings])
+const isPaidOrCompleted = (booking: BookingDetails) => {
+  const paymentStatus = String(
+    booking.paymentInfo?.payment_status || (booking as any).payment_status || ''
+  ).toLowerCase()
+  const status = String(booking.status || '').toLowerCase()
 
-  // Get list data for calendar cell
-  const getListData = (value: Dayjs) => {
-    const dateStr = value.format('YYYY-MM-DD')
-    return bookingsByDate[dateStr] || []
+  return (
+    booking.payment_waived === true ||
+    booking.booking_type === 'manager_scheduled_match' ||
+    paymentStatus === 'completed' ||
+    paymentStatus === 'paid' ||
+    status === 'completed' ||
+    status === 'paid'
+  )
+}
+
+const getBookingFieldId = (booking: BookingDetails) => {
+  if (typeof booking.field === 'string') return booking.field
+  return booking.field?._id
+}
+
+const getFieldHours = (field: Field, date: Dayjs) => {
+  const dayName = dayNames[date.day()]
+  const dayHours = field.operatingHours?.[dayName]
+
+  if (dayHours?.closed) return null
+
+  return {
+    open: dayHours?.open || '06:00',
+    close: dayHours?.close || '22:00',
+  }
+}
+
+const countFieldSlots = (field: Field, date: Dayjs) => {
+  const hours = getFieldHours(field, date)
+  if (!hours) return 0
+
+  const openTime = dayjs(`${date.format('YYYY-MM-DD')} ${hours.open}`)
+  const closeTime = dayjs(`${date.format('YYYY-MM-DD')} ${hours.close}`)
+  let cursor = openTime
+  let count = 0
+
+  while (cursor.isBefore(closeTime)) {
+    count += 1
+    cursor = cursor.add(30, 'minute')
   }
 
-  // Render calendar cell content for dates
-  const cellRender = (value: Dayjs) => {
-    const listData = getListData(value)
-    
-    // Debug logging
-    if (listData.length > 0) {
-      console.log(`Date ${value.format('YYYY-MM-DD')} has ${listData.length} bookings:`, listData)
-    }
-    
-    if (listData.length === 0) {
-      // Show a small indicator if it's today to test if the render function is working
-      if (value.isSame(dayjs(), 'day')) {
-        return <div style={{ fontSize: '10px', color: 'blue' }}>Today</div>
+  return count
+}
+
+const countHeldSlotsForField = (events: BookingEvent[], fieldId: string) => {
+  return events
+    .filter((event) => event.fieldId === fieldId)
+    .reduce((total, event) => total + Math.max(1, Math.ceil(event.duration * 2)), 0)
+}
+
+const getStatusColor = (status: string) => {
+  switch (status?.toLowerCase()) {
+    case 'confirmed':
+      return 'green'
+    case 'pending':
+      return 'orange'
+    case 'cancelled':
+      return 'red'
+    case 'completed':
+      return 'blue'
+    case 'paid':
+      return 'green'
+    default:
+      return 'default'
+  }
+}
+
+const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookings, fields = [] }) => {
+  const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs())
+  const [isModalVisible, setIsModalVisible] = useState(false)
+
+  const heldBookings = useMemo(() => bookings.filter(isPaidOrCompleted), [bookings])
+
+  const eventsByDate = useMemo(() => {
+    const grouped: Record<string, BookingEvent[]> = {}
+
+    heldBookings.forEach((booking) => {
+      const bookingDate = dayjs(booking.date_requested).format('YYYY-MM-DD')
+      const event: BookingEvent = {
+        id: booking._id,
+        title: booking.team_name || 'Field Booking',
+        time: booking.time || 'No time',
+        duration: Number(booking.duration) || 1,
+        clientName: booking.client?.first_name && booking.client?.second_name
+          ? `${booking.client.first_name} ${booking.client.second_name}`
+          : booking.client?.email || 'Unknown Client',
+        fieldId: getBookingFieldId(booking),
+        fieldName: typeof booking.field === 'string' ? 'Field' : booking.field?.name || 'Field',
+        status: booking.status || 'pending',
+        paymentStatus: booking.paymentInfo?.payment_status || (booking as any).payment_status,
       }
-      return null
+
+      if (!grouped[bookingDate]) grouped[bookingDate] = []
+      grouped[bookingDate].push(event)
+    })
+
+    Object.keys(grouped).forEach((date) => {
+      grouped[date].sort((a, b) => a.time.localeCompare(b.time))
+    })
+
+    return grouped
+  }, [heldBookings])
+
+  const getAvailabilityForDate = (date: Dayjs): DayAvailability => {
+    const dateStr = date.format('YYYY-MM-DD')
+    const events = eventsByDate[dateStr] || []
+    const activeFields = fields.filter((field) => field.status === 'active' && field.isAvailable)
+
+    const fieldBreakdown = activeFields.map((field) => {
+      const totalSlots = countFieldSlots(field, date)
+      const heldSlots = countHeldSlotsForField(events, field._id)
+      const availableSlots = Math.max(0, totalSlots - heldSlots)
+
+      return {
+        fieldName: field.name,
+        availableSlots,
+        totalSlots,
+      }
+    })
+
+    const totalSlots = fieldBreakdown.reduce((total, field) => total + field.totalSlots, 0)
+    const availableSlots = fieldBreakdown.reduce((total, field) => total + field.availableSlots, 0)
+    const heldSlots = Math.max(0, totalSlots - availableSlots)
+    const utilization = totalSlots > 0 ? Math.round((heldSlots / totalSlots) * 100) : 0
+
+    return {
+      totalSlots,
+      heldSlots,
+      availableSlots,
+      utilization,
+      events,
+      fieldBreakdown,
     }
+  }
+
+  const selectedAvailability = getAvailabilityForDate(selectedDate)
+
+  const cellRender = (value: Dayjs) => {
+    const availability = getAvailabilityForDate(value)
+    const isCurrentMonth = value.month() === selectedDate.month()
+
+    if (!isCurrentMonth && availability.events.length === 0) return null
+
+    const availabilityColor = availability.availableSlots === 0
+      ? 'text-red-600'
+      : availability.utilization >= 70
+      ? 'text-orange-600'
+      : 'text-[#3A8726]'
 
     return (
-      <div className="calendar-events p-1">
-        {listData.map((booking, index) => (
-          <Tooltip 
-            key={booking.id} 
-            title={
-              <div className="booking-tooltip">
-                <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{booking.title}</div>
-                <div><ClockCircleOutlined /> {booking.time}</div>
-                <div><UserOutlined /> {booking.clientName}</div>
-                <div><EnvironmentOutlined /> {booking.bookedBy}</div>
-                <div>Status: <Tag color={getStatusColor(booking.status)} style={{fontSize: '10px'}}>{booking.status.toUpperCase()}</Tag></div>
-              </div>
-            }
+      <button
+        type="button"
+        className="w-full rounded-md p-1 text-left transition hover:bg-gray-50"
+        onClick={(event) => {
+          event.stopPropagation()
+          setSelectedDate(value)
+          setIsModalVisible(true)
+        }}
+      >
+        <div className={`text-[11px] font-semibold ${availabilityColor}`}>
+          {availability.availableSlots}/{availability.totalSlots || 0} open
+        </div>
+        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
+          <div
+            className="h-full rounded-full bg-[#3A8726]"
+            style={{ width: `${Math.max(0, 100 - availability.utilization)}%` }}
+          />
+        </div>
+        {availability.events.slice(0, 2).map((booking) => (
+          <Tooltip
+            key={booking.id}
+            title={`${booking.time} • ${booking.fieldName} • ${booking.clientName}`}
             placement="topLeft"
           >
-            <Tag 
-              color={getStatusColor(booking.status)} 
-              className="mb-1 text-xs cursor-pointer calendar-booking-tag"
-              style={{ 
-                fontSize: '10px', 
-                padding: '1px 4px',
-                margin: '1px',
-                display: 'block',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                maxWidth: '100%'
-              }}
-              onClick={(e) => {
-                e.stopPropagation()
-                setSelectedDate(value)
-                setSelectedBookings(listData)
-                setIsModalVisible(true)
-              }}
+            <Tag
+              color={getStatusColor(booking.status)}
+              className="mt-1 block max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[10px]"
             >
               {booking.time} {booking.title}
             </Tag>
           </Tooltip>
         ))}
-      </div>
+        {availability.events.length > 2 && (
+          <div className="mt-1 text-[10px] text-gray-500">+{availability.events.length - 2} more</div>
+        )}
+      </button>
     )
   }
 
-  // Get badge status color based on booking status
-  const getStatusBadge = (status: string): 'success' | 'processing' | 'error' | 'warning' | 'default' => {
-    switch (status?.toLowerCase()) {
-      case 'confirmed':
-        return 'success'
-      case 'pending':
-        return 'processing'
-      case 'cancelled':
-        return 'error'
-      case 'completed':
-        return 'success'
-      default:
-        return 'default'
-    }
-  }
-
-  // Get tag color based on booking status
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'confirmed':
-        return 'green'
-      case 'pending':
-        return 'orange'
-      case 'cancelled':
-        return 'red'
-      case 'completed':
-        return 'blue'
-      default:
-        return 'default'
-    }
-  }
-
-  // Handle date selection
   const onSelect = (value: Dayjs) => {
     setSelectedDate(value)
-    const dayBookings = getListData(value)
-    if (dayBookings.length > 0) {
-      setSelectedBookings(dayBookings)
-      setIsModalVisible(true)
-    }
+    setIsModalVisible(true)
   }
 
-  // Handle date change (when navigating months)
   const onChange: CalendarProps<Dayjs>['onChange'] = (date) => {
     setSelectedDate(date)
   }
 
   return (
     <>
-      <Card className="mb-6 shadow-sm">
-        <div className="mb-4">
-          <Title level={4} className="mb-2">Booking Calendar</Title>
-          <Text type="secondary" className="mb-3 block">
-            View all bookings at a glance. Hover over booking tags for details or click to view all bookings for that date.
-          </Text>
-          
-          {/* Status Legend */}
-          <div className="flex flex-wrap gap-2 mb-3">
-            <Text type="secondary" className="mr-2">Status Legend:</Text>
-            <Tag color="green">CONFIRMED</Tag>
-            <Tag color="orange">PENDING</Tag>
-            <Tag color="red">CANCELLED</Tag>
-            <Tag color="blue">COMPLETED</Tag>
+      <Card className="mb-6 rounded-2xl border border-gray-200 shadow-sm">
+        <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-[#3A8726]">
+              <CalendarOutlined />
+              <Text strong className="!text-[#3A8726]">Availability Calendar</Text>
+            </div>
+            <Title level={4} className="!mb-1">Slots at a glance</Title>
+            <Text type="secondary">
+              Open slot counts use active fields, paid bookings, and manager scheduled matches as held time.
+            </Text>
+          </div>
+          <div className="grid grid-cols-3 gap-2 rounded-xl bg-gray-50 p-2 text-center">
+            <div className="px-3 py-2">
+              <div className="text-lg font-bold text-[#3A8726]">{selectedAvailability.availableSlots}</div>
+              <div className="text-[11px] uppercase text-gray-500">Open</div>
+            </div>
+            <div className="px-3 py-2">
+              <div className="text-lg font-bold text-gray-900">{selectedAvailability.heldSlots}</div>
+              <div className="text-[11px] uppercase text-gray-500">Held</div>
+            </div>
+            <div className="px-3 py-2">
+              <div className="text-lg font-bold text-orange-600">{selectedAvailability.utilization}%</div>
+              <div className="text-[11px] uppercase text-gray-500">Booked</div>
+            </div>
           </div>
         </div>
-        
+
         <div className="calendar-container">
           <Calendar
             value={selectedDate}
             onChange={onChange}
             onSelect={onSelect}
             dateCellRender={cellRender}
-            className="booking-calendar"
+            className="admin-availability-calendar"
           />
         </div>
       </Card>
 
-      {/* Booking Details Modal */}
       <Modal
         title={
           <div>
             <ClockCircleOutlined className="mr-2" />
-            Bookings for {selectedDate.format('MMMM D, YYYY')}
+            Availability for {selectedDate.format('MMMM D, YYYY')}
           </div>
         }
         open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={null}
-        width={600}
+        width={700}
       >
-        <div className="space-y-4 max-h-96 overflow-y-auto">
-          {selectedBookings.map((booking) => (
-            <Card key={booking.id} size="small" className="border border-gray-200">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <Text strong className="text-lg">
-                    {booking.title}
-                  </Text>
-                  <div className="mt-1">
-                    <Tag color={getStatusColor(booking.status)}>
-                      {booking.status.toUpperCase()}
+        <div className="space-y-5">
+          <div className="rounded-xl bg-gray-50 p-4">
+            <div className="mb-2 flex items-center justify-between text-sm">
+              <span className="font-semibold text-gray-700">Booked utilization</span>
+              <span className="font-bold text-gray-900">{selectedAvailability.utilization}%</span>
+            </div>
+            <Progress percent={selectedAvailability.utilization} strokeColor="#3A8726" showInfo={false} />
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
+              <div>
+                <div className="font-bold text-[#3A8726]">{selectedAvailability.availableSlots}</div>
+                <div className="text-gray-500">Open slots</div>
+              </div>
+              <div>
+                <div className="font-bold text-gray-900">{selectedAvailability.heldSlots}</div>
+                <div className="text-gray-500">Held slots</div>
+              </div>
+              <div>
+                <div className="font-bold text-gray-900">{selectedAvailability.totalSlots}</div>
+                <div className="text-gray-500">Total slots</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <Text strong>Field availability</Text>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {selectedAvailability.fieldBreakdown.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center text-gray-500 sm:col-span-2">
+                  No active fields available.
+                </div>
+              ) : selectedAvailability.fieldBreakdown.map((field) => (
+                <div key={field.fieldName} className="rounded-lg border border-gray-200 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-semibold text-gray-800">{field.fieldName}</span>
+                    <Tag color={field.availableSlots > 0 ? 'green' : 'red'}>
+                      {field.availableSlots}/{field.totalSlots} open
                     </Tag>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="flex items-center text-gray-600 mb-1">
-                    <ClockCircleOutlined className="mr-1" />
-                    <Text>{booking.time}</Text>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <UserOutlined className="mr-2 text-gray-400" />
-                  <Text>Client: {booking.clientName}</Text>
-                </div>
-                
-                <div className="flex items-center">
-                  <EnvironmentOutlined className="mr-2 text-gray-400" />
-                  <Text>Booked by: {booking.bookedBy}</Text>
-                </div>
-              </div>
-            </Card>
-          ))}
-          
-          {selectedBookings.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No bookings found for this date
+              ))}
             </div>
-          )}
+          </div>
+
+          <div>
+            <Text strong>Bookings holding slots</Text>
+            <div className="mt-3 max-h-72 space-y-3 overflow-y-auto">
+              {selectedAvailability.events.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 p-5 text-center text-gray-500">
+                  No paid or completed bookings are holding slots on this date.
+                </div>
+              ) : selectedAvailability.events.map((booking) => (
+                <Card key={booking.id} size="small" className="border border-gray-200">
+                  <div className="flex justify-between gap-4">
+                    <div>
+                      <Text strong>{booking.title}</Text>
+                      <div className="mt-1">
+                        <Tag color={getStatusColor(booking.status)}>{booking.status.toUpperCase()}</Tag>
+                        {booking.paymentStatus && <Tag color="green">{booking.paymentStatus.toUpperCase()}</Tag>}
+                      </div>
+                    </div>
+                    <Text className="font-semibold">{booking.time}</Text>
+                  </div>
+                  <div className="mt-3 grid gap-2 text-sm text-gray-600 sm:grid-cols-2">
+                    <div className="flex items-center gap-2">
+                      <EnvironmentOutlined className="text-gray-400" />
+                      {booking.fieldName}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <UserOutlined className="text-gray-400" />
+                      {booking.clientName}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
         </div>
       </Modal>
 
@@ -295,69 +382,34 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ bookings }) => {
         .calendar-container {
           overflow-x: auto;
         }
-        
-        .booking-calendar .ant-picker-calendar-date-content {
-          height: auto;
-          min-height: 80px;
+
+        .admin-availability-calendar .ant-picker-calendar-date-content {
+          min-height: 104px;
           overflow: visible;
         }
-        
-        .calendar-events {
-          padding: 2px;
-          max-height: 100px;
-          overflow-y: auto;
+
+        .admin-availability-calendar .ant-picker-calendar-date {
+          border-radius: 8px;
         }
-        
-        .calendar-booking-tag {
-          font-size: 10px !important;
-          line-height: 1.2 !important;
-          border-radius: 2px !important;
-          margin-bottom: 2px !important;
-        }
-        
-        .booking-tooltip div {
-          margin-bottom: 2px;
-          font-size: 12px;
-        }
-        
-        .booking-tooltip .anticon {
-          margin-right: 4px;
-        }
-        
-        .booking-calendar .ant-picker-cell-selected .ant-picker-calendar-date {
-          background: #f0f9ff;
+
+        .admin-availability-calendar .ant-picker-cell-selected .ant-picker-calendar-date {
+          background: #f1faef;
           border-color: #3A8726FF;
         }
-        
-        .booking-calendar .ant-picker-calendar-date:hover {
+
+        .admin-availability-calendar .ant-picker-calendar-date:hover {
           background: #f9fafb;
         }
-        
-        .booking-calendar .ant-picker-calendar-mode-switch {
-          display: flex;
-          flex-wrap: wrap;
-        }
-        
+
         @media (max-width: 768px) {
-          .booking-calendar .ant-picker-calendar-header {
+          .admin-availability-calendar .ant-picker-calendar-header {
             flex-direction: column;
-            align-items: center;
+            align-items: stretch;
             gap: 8px;
           }
-          
-          .booking-calendar .ant-picker-calendar-date-content {
-            min-height: 60px;
-          }
-          
-          .calendar-booking-tag {
-            font-size: 8px !important;
-            padding: 0px 2px !important;
-            margin-bottom: 1px !important;
-          }
-          
-          .calendar-events {
-            padding: 1px;
-            max-height: 60px;
+
+          .admin-availability-calendar .ant-picker-calendar-date-content {
+            min-height: 70px;
           }
         }
       `}</style>

@@ -257,6 +257,18 @@ export default function LeagueDetailPage() {
     ]
 
     const matchColumns = [
+        {
+        title: 'Date',
+        dataIndex: 'date',
+        key: 'date',
+        render: (date: string) => date ? new Date(date).toLocaleDateString() : 'N/A',
+        },
+        {
+        title: 'Time',
+        dataIndex: 'time',
+        key: 'time',
+        render: (time: string) => time || 'N/A',
+        },
        
         {
         title: 'Home Team',
@@ -269,6 +281,14 @@ export default function LeagueDetailPage() {
         dataIndex: 'awayTeam',
         key: 'awayTeam',
         render: (awayTeam: TeamTypes) => awayTeam?.name,
+        },
+        {
+        title: 'Venue',
+        key: 'venue',
+        render: (match: MatchTypes) => {
+            const fieldName = typeof match.field === 'string' ? '' : match.field?.name
+            return fieldName || match.venue || 'N/A'
+        },
         },
         {
         title: 'Status',
@@ -462,6 +482,22 @@ export default function LeagueDetailPage() {
                                     <div>{league.level}</div>
                                     </div>
                                     <div>
+                                    <Text strong>Format:</Text>
+                                    <div>{league.format || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                    <Text strong>Age Group:</Text>
+                                    <div>{league.ageGroup || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                    <Text strong>Type:</Text>
+                                    <div>{league.type || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                    <Text strong>Gender:</Text>
+                                    <div>{league.gender || 'N/A'}</div>
+                                    </div>
+                                    <div>
                                     <Text strong>Status:</Text>
                                     <div>
                                         <Tag color={
@@ -471,6 +507,14 @@ export default function LeagueDetailPage() {
                                         {league.status.toUpperCase()}
                                         </Tag>
                                     </div>
+                                    </div>
+                                    <div>
+                                    <Text strong>Rounds:</Text>
+                                    <div>{league.rounds || 0}</div>
+                                    </div>
+                                    <div>
+                                    <Text strong>Consolation Rounds:</Text>
+                                    <div>{league.consolationRounds || 0}</div>
                                     </div>
                                     <div>
                                     <Text strong>Prize Pool:</Text>

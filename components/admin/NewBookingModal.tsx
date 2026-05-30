@@ -154,9 +154,11 @@ export default function NewBookingModal({ isOpen, onClose, onSuccess }: NewBooki
 
   // Time slots for selection
   const timeSlots = []
-  for (let hour = 6; hour <= 22; hour++) {
+  for (let hour = 6; hour < 22; hour++) {
     timeSlots.push(`${hour.toString().padStart(2, '0')}:00`)
+    timeSlots.push(`${hour.toString().padStart(2, '0')}:30`)
   }
+  timeSlots.push('22:00')
 
   return (
     <Modal

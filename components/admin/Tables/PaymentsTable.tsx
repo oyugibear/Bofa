@@ -13,6 +13,23 @@ import { Select, Input, DatePicker, Skeleton } from 'antd'
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
+const getPaymentTimestamp = (payment: Payment) => {
+    const dateValue = payment.payment_date || payment.createdAt || payment.updatedAt || ''
+    const timestamp = new Date(dateValue).getTime()
+    return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
+const formatPaymentDate = (payment: Payment) => {
+    const timestamp = getPaymentTimestamp(payment)
+    if (!timestamp) return payment.booking_id?.date_requested || 'N/A'
+
+    return new Date(timestamp).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    })
+}
+
 export default function PaymentsTable({payments, setRefresh, loading = false} : {payments: Payment[], setRefresh: () => void, loading?: boolean}) {
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
@@ -111,13 +128,14 @@ export default function PaymentsTable({payments, setRefresh, loading = false} : 
         return {
             id: item._id,
             client: item.postedBy,
-            date: item.booking_id?.date_requested,
+            date: formatPaymentDate(item),
             time: item.booking_id?.time,
             duration: item.booking_id?.duration,
             amount: item.final_amount_invoiced,
             status: item.status,
             paymentStatus: item.payment_status,
             paymentDate: item.payment_date,
+            sortDate: getPaymentTimestamp(item),
             paymentMethod: item.payment_method,
             clientName: `${(item.postedBy as any)?.first_name || ''} ${(item.postedBy as any)?.second_name || ''}`.trim(),
         }
@@ -142,9 +160,9 @@ export default function PaymentsTable({payments, setRefresh, loading = false} : 
 
             // Date range filter
             const dateMatch = !dateRange || 
-                (item.paymentDate && 
-                 new Date(item.paymentDate) >= new Date(dateRange[0]) && 
-                 new Date(item.paymentDate) <= new Date(dateRange[1]))
+                (item.sortDate && 
+                 item.sortDate >= new Date(dateRange[0]).getTime() && 
+                 item.sortDate <= new Date(dateRange[1]).getTime())
 
             return searchMatch && statusMatch && amountMatch && dateMatch
         })
@@ -155,8 +173,8 @@ export default function PaymentsTable({payments, setRefresh, loading = false} : 
 
             switch (sortBy) {
                 case 'date':
-                    aValue = new Date(a.paymentDate || 0).getTime()
-                    bValue = new Date(b.paymentDate || 0).getTime()
+                    aValue = a.sortDate
+                    bValue = b.sortDate
                     break
                 case 'amount':
                     aValue = a.amount || 0

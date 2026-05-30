@@ -4,11 +4,13 @@ import { adminAPI } from '@/utils/api'
 import { PaymentSettingsData } from '@/types'
 
 interface PaymentSettingsProps {
+  initialData?: PaymentSettingsData
   onSave?: (data: PaymentSettingsData) => void
+  onError?: (message: string) => void
   isLoading?: boolean
 }
 
-const PaymentSettings: React.FC<PaymentSettingsProps> = ({ onSave, isLoading: externalLoading }) => {
+const PaymentSettings: React.FC<PaymentSettingsProps> = ({ initialData, onSave, onError, isLoading: externalLoading }) => {
   const [formData, setFormData] = useState<PaymentSettingsData>({
     currency: 'KES',
     taxRate: 16,
@@ -26,8 +28,14 @@ const PaymentSettings: React.FC<PaymentSettingsProps> = ({ onSave, isLoading: ex
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
+    if (initialData) {
+      setFormData(initialData)
+      setLoading(false)
+      return
+    }
+
     loadSettings()
-  }, [])
+  }, [initialData])
 
   const loadSettings = async () => {
     try {
@@ -38,6 +46,7 @@ const PaymentSettings: React.FC<PaymentSettingsProps> = ({ onSave, isLoading: ex
       }
     } catch (error) {
       console.error('Error loading payment settings:', error)
+      onError?.('Failed to load payment settings')
     } finally {
       setLoading(false)
     }
@@ -96,6 +105,7 @@ const PaymentSettings: React.FC<PaymentSettingsProps> = ({ onSave, isLoading: ex
       }
     } catch (error) {
       console.error('Error saving payment settings:', error)
+      onError?.('Failed to save payment settings')
     } finally {
       setSaving(false)
     }
