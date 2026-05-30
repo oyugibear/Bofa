@@ -1,10 +1,10 @@
-import { Modal, Table, Button, Avatar, Tag, Space, Input, Checkbox } from 'antd'
-import React, { useState, useEffect } from 'react'
+import { Modal, Button, Avatar, Tag, Space, Transfer } from 'antd'
+import type { TransferProps } from 'antd'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useToast } from '@/components/Providers/ToastProvider'
-import { SearchOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons'
+import { ReloadOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons'
 import { League, TeamTypes } from '@/types'
-import { useUser } from '@/hooks/useUser'
-import { teamsAPI, leaguesAPI } from '@/utils/api'
+import { leaguesAPI, teamsAPI } from '@/utils/api'
 
 interface LeagueTeamModalProps {
   isOpen: boolean
@@ -14,342 +14,203 @@ interface LeagueTeamModalProps {
   availableTeams?: TeamTypes[]
 }
 
+type TeamTransferItem = {
+  key: string
+  title: string
+  description: string
+  team: TeamTypes
+}
+
+const getTeamId = (team: TeamTypes | string) => typeof team === 'string' ? team : team._id || ''
+
+const getCaptainName = (team: TeamTypes) => {
+  if (!team.captain) return 'No captain'
+  return `${team.captain.first_name || ''} ${team.captain.second_name || ''}`.trim() || 'No captain'
+}
+
 export default function LeagueTeamModal({ isOpen, onClose, setRefresh, league, availableTeams = [] }: LeagueTeamModalProps) {
     const toast = useToast()
-    const { user } = useUser()
-    
-    // State for available teams and selected teams
-    const [allTeams, setAllTeams] = useState<TeamTypes[]>(availableTeams)
-    const [selectedTeams, setSelectedTeams] = useState<string[]>([])
-    const [searchText, setSearchText] = useState('')
+    const [allTeams, setAllTeams] = useState<TeamTypes[]>([])
+    const [targetKeys, setTargetKeys] = useState<string[]>([])
     const [loading, setLoading] = useState(false)
 
-    // Get teams already in the league
-    const leagueTeamIds = league?.teams?.map(team => 
-        typeof team === 'string' ? team : team._id
-    ) || []
+    const leagueTeamIds = useMemo(() => (
+        (league?.teams || []).map(getTeamId).filter(Boolean)
+    ), [league])
 
-    // Filter out teams that are already in the league
-    const availableTeamsForSelection = allTeams.filter(team => 
-        !leagueTeamIds.includes(team._id)
-    )
-
-    // Filter teams based on search
-    const filteredTeams = availableTeamsForSelection.filter(team =>
-        team.name.toLowerCase().includes(searchText.toLowerCase()) ||
-        team.captain?.first_name?.toLowerCase().includes(searchText.toLowerCase()) ||
-        team.captain?.second_name?.toLowerCase().includes(searchText.toLowerCase())
-    )
+    const mergeTeams = (primary: TeamTypes[], secondary: TeamTypes[]) => {
+        const byId = new Map<string, TeamTypes>()
+        primary.concat(secondary).forEach((team) => {
+            if (team?._id) byId.set(team._id, team)
+        })
+        return Array.from(byId.values())
+    }
 
     useEffect(() => {
-        if (isOpen && availableTeams.length === 0) {
-            fetchAllTeams()
-        }
-        
-        // Reset selection when modal opens
-        if (isOpen) {
-            setSelectedTeams([])
-            setSearchText('')
-        }
-    }, [isOpen])
+        if (!isOpen) return
 
-    const fetchAllTeams = async () => {
-        setLoading(true)
-        try {
-            const response = await teamsAPI.getAll()
-            setAllTeams(response.data || response)
-        } catch (error) {
-            console.error('Error fetching teams:', error)
-            toast.error('Failed to load teams')
-        } finally {
-            setLoading(false)
+        setTargetKeys(leagueTeamIds)
+        setAllTeams(mergeTeams((league?.teams || []) as TeamTypes[], availableTeams))
+
+        const fetchAllTeams = async () => {
+            setLoading(true)
+            try {
+                const response = await teamsAPI.getAll()
+                const fetchedTeams = response.data || response || []
+                setAllTeams((current) => mergeTeams(current, fetchedTeams))
+            } catch (error) {
+                console.error('Error fetching teams:', error)
+                toast.error('Failed to load teams')
+            } finally {
+                setLoading(false)
+            }
         }
+
+        fetchAllTeams()
+    }, [isOpen, leagueTeamIds.join(','), availableTeams.length])
+
+    const transferData: TeamTransferItem[] = useMemo(() => (
+        allTeams.map((team) => ({
+            key: team._id || '',
+            title: team.name,
+            description: `${team.members?.length || 0} members • ${getCaptainName(team)}`,
+            team,
+        })).filter((item) => item.key)
+    ), [allTeams])
+
+    const handleChange: TransferProps<TeamTransferItem>['onChange'] = (nextTargetKeys) => {
+        setTargetKeys(nextTargetKeys as string[])
     }
 
-
-    // Handle team selection
-    const handleTeamSelect = (teamId: string, selected: boolean) => {
-        if (selected) {
-            setSelectedTeams(prev => [...prev, teamId])
-        } else {
-            setSelectedTeams(prev => prev.filter(id => id !== teamId))
-        }
+    const handleReset = () => {
+        setTargetKeys(leagueTeamIds)
     }
 
-    // Handle select all teams
-    const handleSelectAll = (selectAll: boolean) => {
-        if (selectAll) {
-            setSelectedTeams(filteredTeams.map(team => team._id).filter(Boolean) as string[])
-        } else {
-            setSelectedTeams([])
-        }
-    }
-
-    // Handle adding selected teams to league
-    const handleAddTeamsToLeague = async () => {
-        if (selectedTeams.length === 0) {
-            toast.error("Please select at least one team")
-            return
-        }
-
+    const handleSaveTeams = async () => {
         if (!league?._id) {
             toast.error("League ID is missing")
             return
         }
 
-        // Show confirmation for adding multiple teams
-        if (selectedTeams.length > 3) {
-            const teamNames = allTeams
-                .filter(team => team._id && selectedTeams.includes(team._id))
-                .map(team => team.name)
-                .join(', ')
-
-            const confirmed = window.confirm(
-                `Are you sure you want to add ${selectedTeams.length} teams to "${league.title}"?\n\nTeams: ${teamNames}`
-            )
-            
-            if (!confirmed) return
-        }
-
         setLoading(true)
         try {
-            // Validate selected teams exist in available teams
-            const teamsToAdd = allTeams.filter(team => 
-                team._id && selectedTeams.includes(team._id)
-            )
-
-            if (teamsToAdd.length !== selectedTeams.length) {
-                toast.error("Some selected teams are no longer available")
-                return
-            }
-
-            // Get current league teams (handle both string IDs and populated objects)
-            const currentTeamIds = league.teams?.map(team => 
-                typeof team === 'string' ? team : team._id
-            ).filter(Boolean) as string[] || []
-
-            // Check for duplicates
-            const duplicateTeams = selectedTeams.filter(teamId => 
-                currentTeamIds.includes(teamId)
-            )
-
-            if (duplicateTeams.length > 0) {
-                toast.error(`${duplicateTeams.length} team(s) are already in this league`)
-                return
-            }
-
-            // Combine existing teams with new teams
-            const updatedTeamIds = [...currentTeamIds, ...selectedTeams]
-
-            // Get the actual team objects for the update (League interface expects TeamTypes[])
-            // We need to get both existing teams and new teams
-            const existingTeams = league.teams?.filter(team => team !== null) || []
-            const newTeamObjects = teamsToAdd
-
-            const updatedTeams = [...existingTeams, ...newTeamObjects] as TeamTypes[]
-
-            // Update the league with new teams
-            const updateData: Partial<League> = {
-                teams: updatedTeams,
-                numberOfTeams: updatedTeams.length
-            }
-
-            console.log('Updating league with teams:', {
-                leagueId: league._id,
-                currentTeams: currentTeamIds.length,
-                newTeams: selectedTeams.length,
-                totalTeams: updatedTeamIds.length,
-                updateData
+            const response = await leaguesAPI.edit(league._id, {
+                teams: targetKeys as any,
+                numberOfTeams: targetKeys.length
             })
 
-            const response = await leaguesAPI.edit(league._id, updateData)
-
             if (response && (response.success || response.data)) {
-                const addedTeamsCount = selectedTeams.length
-                const teamNames = teamsToAdd.map(team => team.name).join(', ')
-                
-                toast.success(
-                    `Successfully added ${addedTeamsCount} team(s) to the league: ${teamNames}`
-                )
-                
-                // Clear selection and refresh data
-                setSelectedTeams([])
-                
-                // Refresh available teams by refetching (optional)
-                if (availableTeams.length === 0) {
-                    await fetchAllTeams()
-                }
-                
-                setRefresh() // Trigger parent refresh to update league data
+                toast.success(`Updated ${league.title} teams`)
+                setRefresh()
                 onClose()
             } else {
                 throw new Error('Invalid response from server')
             }
         } catch (error) {
-            console.error('Error adding teams to league:', error)
-            const errorMessage = error instanceof Error ? error.message : 'Failed to add teams to league'
+            console.error('Error updating league teams:', error)
+            const errorMessage = error instanceof Error ? error.message : 'Failed to update league teams'
             toast.error(errorMessage)
         } finally {
             setLoading(false)
         }
     }
 
-    // Table columns for team selection
-    const columns = [
-        {
-            title: '',
-            key: 'select',
-            width: 50,
-            render: (team: TeamTypes) => (
-                <Checkbox
-                    checked={team._id ? selectedTeams.includes(team._id) : false}
-                    onChange={(e) => team._id && handleTeamSelect(team._id, e.target.checked)}
-                />
-            ),
-        },
-        {
-            title: 'Team',
-            key: 'team',
-            render: (team: TeamTypes) => (
-                <Space>
-                    <Avatar icon={<TeamOutlined />} />
-                    <div>
-                        <div className="font-medium">{team.name}</div>
-                        <div className="text-gray-500 text-sm">
-                            {team.members?.length || 0} members
-                        </div>
-                    </div>
-                </Space>
-            ),
-        },
-        {
-            title: 'Captain',
-            key: 'captain',
-            render: (team: TeamTypes) => (
-                team.captain ? (
-                    <Space>
-                        <Avatar icon={<UserOutlined />} size="small" />
-                        <span>{`${team.captain.first_name} ${team.captain.second_name}`}</span>
-                    </Space>
-                ) : (
-                    <span className="text-gray-400">No Captain</span>
-                )
-            ),
-        },
-        {
-            title: 'Status',
-            dataIndex: 'status',
-            key: 'status',
-            render: (status: string) => (
-                <Tag color={status === 'active' ? 'green' : 'default'}>
-                    {(status || 'Active').toUpperCase()}
-                </Tag>
-            ),
-        },
-        {
-            title: 'Points',
-            dataIndex: 'points',
-            key: 'points',
-            render: (points: number) => points || 0,
-        },
-    ]
-
-    const isAllSelected = filteredTeams.length > 0 && selectedTeams.length === filteredTeams.length
-
     return (
         <Modal
-            title={`Add Teams to ${league?.title || 'League'}`}
+            title={`Edit Teams - ${league?.title || 'League'}`}
             open={isOpen}
             onCancel={onClose}
-            width={800}
+            width={920}
             footer={[
+                <Button key="reset" icon={<ReloadOutlined />} onClick={handleReset}>
+                    Reset
+                </Button>,
                 <Button key="cancel" onClick={onClose}>
                     Cancel
                 </Button>,
                 <Button
-                    key="add"
+                    key="save"
                     type="primary"
-                    onClick={handleAddTeamsToLeague}
-                    disabled={selectedTeams.length === 0}
+                    onClick={handleSaveTeams}
                     loading={loading}
                     className="bg-[#3A8726FF]"
                 >
-                    Add {selectedTeams.length} Team{selectedTeams.length !== 1 ? 's' : ''} to League
+                    Save {targetKeys.length} Team{targetKeys.length !== 1 ? 's' : ''}
                 </Button>,
             ]}
         >
             <div className="flex flex-col gap-4">
-                {/* League Info */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                        <TeamOutlined className="text-[#3A8726FF]" />
-                        <span className="font-medium">League: {league?.title}</span>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                        {league?.season} Season • Currently has {league?.teams?.length || 0} teams
-                    </div>
-                </div>
-
-                {/* Search and Select All */}
-                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                    <Input
-                        placeholder="Search teams by name or captain..."
-                        prefix={<SearchOutlined />}
-                        value={searchText}
-                        onChange={(e) => setSearchText(e.target.value)}
-                        className="flex-1 max-w-md"
-                    />
-                    <div className="flex items-center gap-2">
-                        <Checkbox
-                            checked={isAllSelected}
-                            indeterminate={selectedTeams.length > 0 && !isAllSelected}
-                            onChange={(e) => handleSelectAll(e.target.checked)}
-                        >
-                            Select All ({filteredTeams.length})
-                        </Checkbox>
-                    </div>
-                </div>
-
-                {/* Available Teams Count */}
-                <div className="text-sm text-gray-600">
-                    {availableTeamsForSelection.length} teams available to add to this league
-                    {searchText && ` • ${filteredTeams.length} teams match your search`}
-                </div>
-
-                {/* Teams Table */}
-                <div className="border border-gray-200 rounded-lg">
-                    <Table
-                        columns={columns}
-                        dataSource={filteredTeams}
-                        rowKey={(record) => record._id || ''}
-                        loading={loading}
-                        pagination={{
-                            pageSize: 8,
-                            showSizeChanger: false,
-                            showQuickJumper: true,
-                        }}
-                        scroll={{ y: 400 }}
-                        locale={{
-                            emptyText: searchText 
-                                ? "No teams found matching your search" 
-                                : "No teams available to add"
-                        }}
-                    />
-                </div>
-
-                {/* Selection Summary */}
-                {selectedTeams.length > 0 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <div className="text-sm">
-                            <span className="font-medium text-blue-900">
-                                {selectedTeams.length} team{selectedTeams.length !== 1 ? 's' : ''} selected
-                            </span>
-                            <div className="text-blue-700 mt-1">
-                                These teams will be added to "{league?.title}" league
-                            </div>
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <div className="text-sm text-gray-500">Current League</div>
+                            <div className="font-semibold text-gray-900">{league?.title}</div>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                            {targetKeys.length} selected from {transferData.length} teams
                         </div>
                     </div>
-                )}
+                </div>
+
+                <Transfer
+                    dataSource={transferData}
+                    titles={['Available Teams', 'In League']}
+                    targetKeys={targetKeys}
+                    onChange={handleChange}
+                    render={(item) => item.title}
+                    showSearch
+                    oneWay={false}
+                    listStyle={{
+                        width: '100%',
+                        height: 420,
+                    }}
+                    filterOption={(inputValue, option) => (
+                        option.title.toLowerCase().includes(inputValue.toLowerCase()) ||
+                        option.description.toLowerCase().includes(inputValue.toLowerCase())
+                    )}
+                >
+                    {({ direction, filteredItems, selectedKeys, onItemSelect }) => (
+                        <div className="h-full overflow-y-auto">
+                            {filteredItems.length === 0 ? (
+                                <div className="p-6 text-center text-sm text-gray-500">
+                                    No teams found
+                                </div>
+                            ) : filteredItems.map((item) => {
+                                const checked = selectedKeys.includes(item.key)
+                                const team = item.team
+
+                                return (
+                                    <button
+                                        key={`${direction}-${item.key}`}
+                                        type="button"
+                                        onClick={() => onItemSelect(item.key, !checked)}
+                                        className={`flex w-full items-center justify-between gap-3 border-b border-gray-100 px-3 py-3 text-left transition-colors hover:bg-gray-50 ${checked ? 'bg-emerald-50' : 'bg-white'}`}
+                                    >
+                                        <Space>
+                                            <Avatar icon={<TeamOutlined />} />
+                                            <div>
+                                                <div className="font-medium text-gray-900">{team.name}</div>
+                                                <div className="text-xs text-gray-500">
+                                                    {team.members?.length || 0} members
+                                                </div>
+                                            </div>
+                                        </Space>
+
+                                        <div className="flex flex-col items-end gap-1">
+                                            <Tag color={team.status === 'active' ? 'green' : 'default'}>
+                                                {(team.status || 'inactive').toUpperCase()}
+                                            </Tag>
+                                            <span className="flex items-center gap-1 text-xs text-gray-500">
+                                                <UserOutlined />
+                                                {getCaptainName(team)}
+                                            </span>
+                                        </div>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    )}
+                </Transfer>
             </div>
         </Modal>
     )

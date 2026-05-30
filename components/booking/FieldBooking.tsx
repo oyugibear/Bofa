@@ -1,109 +1,90 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { Calendar, Button, Card, Select, Input, Modal, Form } from 'antd'
-import { CalendarOutlined, ClockCircleOutlined, CheckCircleOutlined, CreditCardOutlined, UserOutlined, PhoneOutlined, MailOutlined, TeamOutlined } from '@ant-design/icons'
+import React, { useEffect, useMemo, useState } from 'react'
+import { Button, Calendar, Select, Spin } from 'antd'
+import {
+  CalendarOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  CreditCardOutlined,
+  EnvironmentOutlined,
+  TeamOutlined,
+} from '@ant-design/icons'
 import dayjs, { Dayjs } from 'dayjs'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../Providers/ToastProvider'
 import { bookingAPI, fieldAPI } from '../../utils/api'
-import Link from 'next/link'
 import { Field } from '@/types'
 
 interface TimeSlot {
   time: string
   available: boolean
   price: number
+  reason?: string
 }
 
-interface BookingData {
-  date: Dayjs | null
-  time: string | null
-  duration: number
-  totalPrice: number
-  field: string
-  bookingType: 'training' | 'match' | 'tournament' | 'casual'
-  teamName?: string
-  contactInfo: {
-    name: string
-    email: string
-    phone: string
-  }
-  specialRequests?: string
+const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
+const KENYA_TIME_ZONE = 'Africa/Nairobi'
+
+const durations = [
+  { value: 0.5, label: '30 min', fullLabel: '30 Minutes', multiplier: 0.5 },
+  { value: 1, label: '1 hour', fullLabel: '1 Hour', multiplier: 1 },
+  { value: 1.5, label: '1.5 hrs', fullLabel: '1.5 Hours', multiplier: 1.4 },
+  { value: 2, label: '2 hrs', fullLabel: '2 Hours', multiplier: 1.8 },
+  { value: 3, label: '3 hrs', fullLabel: '3 Hours', multiplier: 2.5 },
+]
+
+const formatMoney = (amount: number) => `KES ${amount.toLocaleString()}`
+
+const getKenyaNow = () => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: KENYA_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date())
+
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, part.value])
+  )
+
+  return dayjs(`${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`)
 }
 
+const isPaidBooking = (booking: any) => {
+  const paymentStatus = String(booking.payment_status || booking.paymentInfo?.payment_status || '').toLowerCase()
+  const status = String(booking.status || '').toLowerCase()
 
-interface BookingHistory {
-  id: string
-  date: string
-  time: string
-  field: string
-  status: 'confirmed' | 'pending' | 'cancelled'
-  totalPrice: number
+  return paymentStatus === 'completed' || paymentStatus === 'paid' || status === 'paid' || status === 'completed'
 }
 
 export default function FieldBooking() {
   const { user, isAuthenticated } = useAuth()
   const toast = useToast()
-  
-  // Debug authentication status
-  useEffect(() => {
-    console.log('FieldBooking Auth Status:', {
-      user: user,
-      isAuthenticated: isAuthenticated,
-      userRole: user?.role,
-      userId: user?._id
-    })
-  }, [user, isAuthenticated])
-  
-  // Booking state
-  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null)
-  const [selectedTime, setSelectedTime] = useState<string | null>(null)
-  const [selectedField, setSelectedField] = useState<string>('')
-  const [duration, setDuration] = useState<number>(1)
-  const [bookingType, setBookingType] = useState<'training' | 'match' | 'tournament' | 'casual'>('casual')
-  const [teamName, setTeamName] = useState<string>('')
-  const [specialRequests, setSpecialRequests] = useState<string>('')
-  
-  // UI state
-  const [loading, setLoading] = useState(false)
-  const [currentStep, setCurrentStep] = useState(0)
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
-  
-  // Contact form state
-  const [contactForm, setContactForm] = useState({
-    name: user ? `${user.first_name} ${user.second_name}` : '',
-    email: user?.email || '',
-    phone: user?.phone_number || ''
-  })
 
-  // Update contact form when user changes
-  useEffect(() => {
-    if (user) {
-      setContactForm({
-        name: `${user.first_name} ${user.second_name}`,
-        email: user.email,
-        phone: user.phone_number
-      })
-    }
-  }, [user])
-
-  // Available fields - loaded from API
   const [fields, setFields] = useState<Field[]>([])
   const [fieldsLoading, setFieldsLoading] = useState(true)
-
-  // All bookings - loaded once on page load
-  const [allBookings, setAllBookings] = useState<any[]>([])
   const [bookingsLoading, setBookingsLoading] = useState(true)
+  const [allBookings, setAllBookings] = useState<any[]>([])
 
-  // Load fields from API
+  const [selectedField, setSelectedField] = useState('')
+  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(() => getKenyaNow())
+  const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  const [duration, setDuration] = useState(1)
+  const [teamName, setTeamName] = useState('')
+  const [loading, setLoading] = useState(false)
+
   useEffect(() => {
     const loadFields = async () => {
       try {
         setFieldsLoading(true)
         const response = await fieldAPI.getAll()
-        
-        // Transform API response to match our Field interface
         const transformedFields = response.data?.map((field: any) => ({
           _id: field._id,
           name: field.name,
@@ -122,17 +103,17 @@ export default function FieldBooking() {
           postedBy: field.postedBy,
           managedBy: field.managedBy || [],
           settings: field.settings,
-          // Legacy properties for backward compatibility
-          capacity: 22, // Default capacity
-          features: [], // Default features
-          priceMultiplier: 1.0
         })) || []
-        
+
         setFields(transformedFields)
+        const firstAvailable = transformedFields.find((field: Field) => field.isAvailable && field.status === 'active') || transformedFields[0]
+        if (firstAvailable) {
+          setSelectedField(firstAvailable._id)
+        }
       } catch (error) {
         console.error('Failed to load fields:', error)
         toast.error('Failed to load available fields')
-        setFields([]) // No fallback data - use only API data
+        setFields([])
       } finally {
         setFieldsLoading(false)
       }
@@ -141,27 +122,23 @@ export default function FieldBooking() {
     loadFields()
   }, [])
 
-  // Load all bookings when page loads
-  console.log("Allbookings: ", allBookings)
   useEffect(() => {
     const loadAllBookings = async () => {
       try {
         setBookingsLoading(true)
         const response = await bookingAPI.getFieldAvailability()
-        console.log('All bookings loaded:', response.data)
-        // Filter out cancelled bookings and store only date, time, field info
-        const activeBookings = response.data.bookedSlots.filter((booking: any) => 
-          booking.status !== 'cancelled'
-        ).map((booking: any) => ({
-          date: booking.date,
-          time: booking.time,
-          duration: booking.duration,
-          field: booking.field._id || booking.field,
-          status: booking.status
-        }))
-        
+        const activeBookings = response.data.bookedSlots
+          .filter((booking: any) => isPaidBooking(booking))
+          .map((booking: any) => ({
+            date: booking.date,
+            time: booking.time,
+            duration: booking.duration,
+            field: booking.field?._id || booking.field,
+            status: booking.status,
+            payment_status: booking.payment_status,
+          }))
+
         setAllBookings(activeBookings)
-        console.log('Processed bookings:', activeBookings)
       } catch (error) {
         console.error('Failed to load bookings:', error)
         toast.error('Failed to load booking data')
@@ -176,283 +153,168 @@ export default function FieldBooking() {
     }
   }, [isAuthenticated])
 
-  // Load time slots when date or field changes (wait for bookings to be loaded)
-  useEffect(() => {
-    if (selectedDate && selectedField && fields.length > 0 && !bookingsLoading) {
-      loadTimeSlots(selectedDate.format('YYYY-MM-DD'), selectedField)
+  const selectedFieldData = useMemo(
+    () => fields.find((field) => field._id === selectedField),
+    [fields, selectedField]
+  )
+
+  const selectedDuration = durations.find((item) => item.value === duration) || durations[1]
+
+  const getDayHours = (field: Field | undefined, date: Dayjs) => {
+    const dayName = dayNames[date.day()]
+    return field?.operatingHours?.[dayName]
+  }
+
+  const getSlotPrice = (date: Dayjs, time: string, field: Field) => {
+    const hour = Number(time.split(':')[0])
+    let price = field.price_per_hour
+
+    if (hour >= 17 && hour <= 21 && field.peak_hour_price) {
+      price = field.peak_hour_price
     }
-  }, [selectedDate, selectedField, fields, bookingsLoading, allBookings])
 
-  // Automatically assign the first available field when fields are loaded
-  useEffect(() => {
-    if (fields.length > 0 && !selectedField) {
-      // Find the first available field, or just use the first field if none are marked available
-      const availableField = fields.find(field => field.isAvailable) || fields[0]
-      setSelectedField(availableField._id || '')
+    if ((date.day() === 0 || date.day() === 6) && field.weekend_price) {
+      price = field.weekend_price
     }
-  }, [fields, selectedField])
 
+    return price
+  }
 
-  // Available time slots from API
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
-  const [timeSlotsLoading, setTimeSlotsLoading] = useState(false)
+  const isWithinAdvanceWindow = (date: Dayjs, field: Field | undefined) => {
+    const maxDays = field?.bookingRules?.advanceBookingDays || 30
+    return date.startOf('day').isBefore(getKenyaNow().add(maxDays + 1, 'day').startOf('day'))
+  }
 
-  // Load available time slots for selected date and field
-  // Check if a time slot is booked (considering duration)
-  const isTimeSlotBooked = (date: string, fieldId: string, time: string) => {
-    const formattedDate = dayjs(date).format('YYYY-MM-DD')
-    const targetTime = dayjs(`${formattedDate} ${time}`)
-    
-    return allBookings.some(booking => {
+  const isSlotTooSoon = (slotStart: Dayjs) => {
+    return slotStart.isBefore(getKenyaNow().add(1, 'hour'))
+  }
+
+  const overlapsExistingBooking = (slotStart: Dayjs, slotEnd: Dayjs, fieldId: string) => {
+    return allBookings.some((booking) => {
       const bookingDate = dayjs(booking.date).format('YYYY-MM-DD')
-      if (bookingDate !== formattedDate || booking.field !== fieldId) {
+      if (bookingDate !== slotStart.format('YYYY-MM-DD') || booking.field !== fieldId) {
         return false
       }
-      
-      const bookingStartTime = dayjs(`${formattedDate} ${booking.time}`)
-      // Handle fractional durations (e.g., 0.5 for 30 minutes)
-      const duration = parseFloat(booking.duration) || 1
-      const bookingEndTime = bookingStartTime.add(duration * 60, 'minutes')
-      
-      // Check if target time falls within the booking period
-      return (targetTime.isSame(bookingStartTime) || targetTime.isAfter(bookingStartTime)) && 
-             targetTime.isBefore(bookingEndTime)
+
+      const bookingStart = dayjs(`${bookingDate} ${booking.time}`)
+      const bookingEnd = bookingStart.add((parseFloat(booking.duration) || 1) * 60, 'minute')
+      return slotStart.isBefore(bookingEnd) && slotEnd.isAfter(bookingStart)
     })
   }
 
-  // Check if all time slots for a date are booked
-  const isDateFullyBooked = (date: Dayjs) => {
-    if (!selectedField || allBookings.length === 0) return false
-    
-    const selectedFieldData = fields.find(f => f._id === selectedField)
-    if (!selectedFieldData) return false
-    
-    const formattedDate = date.format('YYYY-MM-DD')
-    const dayOfWeek = date.day()
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
-    const currentDayName = dayNames[dayOfWeek]
-    
-    let totalSlots = 0
-    let bookedSlots = 0
-    
-    if (selectedFieldData.operatingHours) {
-      const dayHours = selectedFieldData.operatingHours[currentDayName as keyof typeof selectedFieldData.operatingHours]
-      if (dayHours && !dayHours.closed) {
-        const startHour = parseInt(dayHours.open.split(':')[0])
-        const endHour = parseInt(dayHours.close.split(':')[0])
-        totalSlots = endHour - startHour
-        
-        for (let hour = startHour; hour < endHour; hour++) {
-          const timeString = `${hour.toString().padStart(2, '0')}:00`
-          if (isTimeSlotBooked(formattedDate, selectedField, timeString)) {
-            bookedSlots++
-          }
-        }
+  const timeSlots = useMemo<TimeSlot[]>(() => {
+    if (!selectedDate || !selectedFieldData || !selectedField) return []
+
+    const dayHours = getDayHours(selectedFieldData, selectedDate)
+    if (dayHours?.closed) return []
+
+    const open = dayHours?.open || '06:00'
+    const close = dayHours?.close || '22:00'
+    const openTime = dayjs(`${selectedDate.format('YYYY-MM-DD')} ${open}`)
+    const closeTime = dayjs(`${selectedDate.format('YYYY-MM-DD')} ${close}`)
+    const slots: TimeSlot[] = []
+
+    let cursor = openTime
+    while (cursor.isBefore(closeTime)) {
+      const slotEnd = cursor.add(duration * 60, 'minute')
+      const time = cursor.format('HH:mm')
+      const price = getSlotPrice(selectedDate, time, selectedFieldData)
+      let reason = ''
+
+      if (slotEnd.isAfter(closeTime)) {
+        reason = 'Closes soon'
+      } else if (isSlotTooSoon(cursor)) {
+        reason = 'Soon'
+      } else if (overlapsExistingBooking(cursor, slotEnd, selectedField)) {
+        reason = 'Booked'
       }
-    } else {
-      // Default hours 6AM to 10PM = 16 slots
-      totalSlots = 16
-      for (let hour = 6; hour < 22; hour++) {
-        const timeString = `${hour.toString().padStart(2, '0')}:00`
-        if (isTimeSlotBooked(formattedDate, selectedField, timeString)) {
-          bookedSlots++
-        }
+
+      slots.push({
+        time,
+        price,
+        available: !reason,
+        reason,
+      })
+
+      cursor = cursor.add(30, 'minute')
+    }
+
+    return slots
+  }, [allBookings, duration, selectedDate, selectedField, selectedFieldData])
+
+  useEffect(() => {
+    if (selectedTime) {
+      const slot = timeSlots.find((item) => item.time === selectedTime)
+      if (!slot?.available) {
+        setSelectedTime(null)
       }
     }
-    
-    return totalSlots > 0 && bookedSlots >= totalSlots
-  }
-
-  const loadTimeSlots = async (date: string, fieldId: string) => {
-    try {
-      setTimeSlotsLoading(true)
-      const selectedFieldData = fields.find(f => f._id === fieldId)
-      
-      console.log('Loading time slots for:', { date, fieldId, allBookings: allBookings.length })
-      
-      const slots: TimeSlot[] = []
-      
-      if (selectedFieldData?.operatingHours) {
-        // Get current day of week
-        const selectedDayOfWeek = dayjs(date).day()
-        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
-        const currentDayName = dayNames[selectedDayOfWeek]
-        const dayHours = selectedFieldData.operatingHours[currentDayName as keyof typeof selectedFieldData.operatingHours]
-        
-        if (dayHours && !dayHours.closed) {
-          const startHour = parseInt(dayHours.open.split(':')[0])
-          const endHour = parseInt(dayHours.close.split(':')[0])
-          
-          // Generate 30-minute time slots
-          for (let hour = startHour; hour < endHour; hour++) {
-            // Add :00 slot
-            const timeString00 = `${hour.toString().padStart(2, '0')}:00`
-            const isBooked00 = isTimeSlotBooked(date, fieldId, timeString00)
-            
-            // Add :30 slot
-            const timeString30 = `${hour.toString().padStart(2, '0')}:30`
-            const isBooked30 = isTimeSlotBooked(date, fieldId, timeString30)
-            
-            // Calculate price based on field pricing and time
-            let price = selectedFieldData.price_per_hour
-            
-            // Peak hours pricing (5 PM to 9 PM)
-            const isPeakHour = hour >= 17 && hour <= 21
-            if (isPeakHour && selectedFieldData.peak_hour_price) {
-              price = selectedFieldData.peak_hour_price
-            }
-            
-            // Weekend pricing
-            const isWeekend = selectedDayOfWeek === 0 || selectedDayOfWeek === 6
-            if (isWeekend && selectedFieldData.weekend_price) {
-              price = selectedFieldData.weekend_price
-            }
-            
-            slots.push({
-              time: timeString00,
-              available: !isBooked00,
-              price: price
-            })
-            
-            slots.push({
-              time: timeString30,
-              available: !isBooked30,
-              price: price
-            })
-          }
-        }
-        
-        setTimeSlots(slots)
-      } else {
-        // Fallback default hours if no operating hours specified (6 AM to 10 PM with 30-minute slots)
-        for (let hour = 6; hour < 22; hour++) {
-          // Add :00 slot
-          const timeString00 = `${hour.toString().padStart(2, '0')}:00`
-          const isBooked00 = isTimeSlotBooked(date, fieldId, timeString00)
-          
-          // Add :30 slot
-          const timeString30 = `${hour.toString().padStart(2, '0')}:30`
-          const isBooked30 = isTimeSlotBooked(date, fieldId, timeString30)
-          
-          slots.push({
-            time: timeString00,
-            available: !isBooked00,
-            price: selectedFieldData?.price_per_hour || 2000
-          })
-          
-          slots.push({
-            time: timeString30,
-            available: !isBooked30,
-            price: selectedFieldData?.price_per_hour || 2000
-          })
-        }
-        setTimeSlots(slots)
-      }
-    } catch (error) {
-      console.error('Failed to load time slots:', error)
-      toast.error('Failed to load available time slots')
-    } finally {
-      setTimeSlotsLoading(false)
-    }
-  }
-
-  const durations = [
-    { value: 0.5, label: '30 Minutes', multiplier: 0.5 },
-    { value: 1, label: '1 Hour', multiplier: 1 },
-    { value: 1.5, label: '1.5 Hours', multiplier: 1.4 },
-    { value: 2, label: '2 Hours', multiplier: 1.8 },
-    { value: 3, label: '3 Hours', multiplier: 2.5 },
-  ]
-
-
-  // Calculate current step based on selections (no field selection step)
-  const getCurrentStep = () => {
-    if (!selectedDate) return 0
-    if (!selectedTime) return 1
-    if (selectedDate && selectedTime && !loading) return 2
-    if (loading) return 3
-    return 0
-  }
+  }, [duration, selectedTime, timeSlots])
 
   const disabledDate = (current: Dayjs) => {
     if (!current) return false
-    
-    // Disable past dates
-    if (current < dayjs().endOf('day')) return true
-    
-    // Disable fully booked dates
-    if (!bookingsLoading && selectedField && allBookings.length > 0) {
-      return isDateFullyBooked(current)
+
+    if (current.isBefore(getKenyaNow().startOf('day'))) {
+      return true
     }
-    
-    return false
+
+    if (!isWithinAdvanceWindow(current, selectedFieldData)) {
+      return true
+    }
+
+    if (!selectedFieldData || bookingsLoading) {
+      return false
+    }
+
+    const dayHours = getDayHours(selectedFieldData, current)
+    if (dayHours?.closed) {
+      return true
+    }
+
+    const open = dayHours?.open || '06:00'
+    const close = dayHours?.close || '22:00'
+    const openTime = dayjs(`${current.format('YYYY-MM-DD')} ${open}`)
+    const closeTime = dayjs(`${current.format('YYYY-MM-DD')} ${close}`)
+    let cursor = openTime
+
+    while (cursor.add(duration * 60, 'minute').isSame(closeTime) || cursor.add(duration * 60, 'minute').isBefore(closeTime)) {
+      const slotEnd = cursor.add(duration * 60, 'minute')
+      if (!isSlotTooSoon(cursor) && !overlapsExistingBooking(cursor, slotEnd, selectedField)) {
+        return false
+      }
+      cursor = cursor.add(30, 'minute')
+    }
+
+    return true
   }
 
   const calculatePrice = () => {
-    if (!selectedTime || !selectedField) return 0
-    const timeSlot = timeSlots.find(slot => slot.time === selectedTime)
-    const field = fields.find(f => f._id === selectedField)
-    if (!timeSlot || !field) return 0
-    
-    const durationMultiplier = durations.find(d => d.value === duration)?.multiplier || 1
-    
-    // Use field's actual pricing structure
-    let fieldPrice = field.price_per_hour
-    
-    // Check if it's peak hours (5 PM to 9 PM) and field has peak pricing
-    const currentHour = parseInt(selectedTime!)
-    const isPeakHour = currentHour >= 17 && currentHour <= 21
-    if (isPeakHour && field.peak_hour_price) {
-      fieldPrice = field.peak_hour_price
-    }
-    
-    // Check if it's weekend and field has weekend pricing
-    const selectedDayOfWeek = selectedDate?.day()
-    const isWeekend = selectedDayOfWeek === 0 || selectedDayOfWeek === 6 // Sunday or Saturday
-    if (isWeekend && field.weekend_price) {
-      fieldPrice = field.weekend_price
-    }
-    
-    const basePrice = fieldPrice * durationMultiplier
-    
-    // Add type-based pricing
-    const typeMultiplier = {
-      casual: 1.0,
-      training: 0.9,
-      match: 1.2,
-      tournament: 1.5
-    }[bookingType]
-    
-    return Math.round(basePrice * typeMultiplier)
+    if (!selectedTime || !selectedFieldData || !selectedDate) return 0
+
+    const basePrice = getSlotPrice(selectedDate, selectedTime, selectedFieldData)
+    return Math.round(basePrice * selectedDuration.multiplier)
   }
 
-  const formatDuration = (duration: number) => {
-    if (duration === 0.5) {
-      return "30 Minutes"
-    } else if (duration === 1) {
-      return "1 Hour"
-    } else {
-      return `${duration} Hours`
-    }
+  const selectedSlot = timeSlots.find((slot) => slot.time === selectedTime)
+  const canConfirm = Boolean(selectedDate && selectedTime && selectedFieldData && !loading)
+
+  const handleDateSelect = (date: Dayjs | null) => {
+    setSelectedDate(date)
+    setSelectedTime(null)
   }
 
-  const validateBookingForm = (): boolean => {
-    if (!selectedDate || !selectedTime) {
-      toast.error('Please select both date and time')
+  const validateBookingForm = () => {
+    if (!selectedDate || !selectedTime || !selectedFieldData) {
+      toast.error('Choose a field, date, and available time.')
       return false
     }
-    if (!selectedField) {
-      toast.error('No field available for booking')
+
+    const slotStart = dayjs(`${selectedDate.format('YYYY-MM-DD')} ${selectedTime}`)
+    if (isSlotTooSoon(slotStart)) {
+      toast.error('Please choose a time at least one hour from now.')
       return false
     }
-    if (!contactForm.name || !contactForm.email || !contactForm.phone) {
-      toast.error('Please fill in all contact information')
-      return false
-    }
-    if (bookingType !== 'casual' && !teamName.trim()) {
-      toast.error('Please enter team name for this booking type')
-      return false
-    }
+
     return true
   }
 
@@ -468,35 +330,23 @@ export default function FieldBooking() {
 
     setLoading(true)
     try {
-      const selectedFieldData = fields.find(f => f._id === selectedField)!
-      
       const bookingData = {
         date_requested: selectedDate!.format('YYYY-MM-DD'),
         time: selectedTime!,
-        duration: duration,
+        duration: String(duration),
         total_price: calculatePrice(),
-        field: selectedFieldData._id,
-        client: user._id // Add user ID for the booking
+        field: selectedFieldData!._id,
+        client: user._id,
+        team_name: teamName.trim(),
       }
-      
-      // Call the real API
-      const response = await bookingAPI.create(bookingData)
-      console.log('Booking response:', response)
 
-        if (response.data.paymentLink) {
-                window.location.href = response.data.paymentLink;
-        } else {
-            toast.error("Payment link is not available");
-        }
-      
-      toast.success('Field booked successfully! Check your email for confirmation.')
-      
-      // Reset form
-      setSelectedDate(null)
-      setSelectedTime(null)
-      setDuration(1)
-      setCurrentStep(0)
-      
+      const response = await bookingAPI.create(bookingData)
+
+      if (response.data.paymentLink) {
+        window.location.href = response.data.paymentLink
+      } else {
+        toast.error('Payment link is not available')
+      }
     } catch (error) {
       console.error('Booking error:', error)
       toast.error('Booking failed. Please try again.')
@@ -505,342 +355,295 @@ export default function FieldBooking() {
     }
   }
 
-  const handleDateSelect = (date: Dayjs | null) => {
-    setSelectedDate(date)
-    if (date && !selectedTime) {
-      // Auto-scroll to time selection or show a hint
-      setTimeout(() => {
-        const timeSection = document.getElementById('time-selection')
-        if (timeSection) {
-          timeSection.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }
-      }, 300)
-    }
-  }
-
-  const handleTimeSelect = (time: string) => {
-    setSelectedTime(time)
-    if (selectedDate && time) {
-      // Auto-scroll to summary
-      setTimeout(() => {
-        const summarySection = document.getElementById('booking-summary')
-        if (summarySection) {
-          summarySection.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        }
-      }, 300)
-    }
-  }
-
-  const renderPaymentModal = () => (
-    <Modal
-      title="Payment Confirmation"
-      open={showPaymentModal}
-      onOk={() => setShowPaymentModal(false)}
-      onCancel={() => setShowPaymentModal(false)}
-      footer={[
-        <Button key="back" onClick={() => setShowPaymentModal(false)}>
-          Close
-        </Button>,
-        <Button key="submit" type="primary" onClick={() => setShowPaymentModal(false)}>
-          Pay KES {calculatePrice()}
-        </Button>,
-      ]}
-    >
-      <div className="space-y-4">
-        <p>Your booking has been confirmed. Please proceed with payment to secure your field.</p>
-        <div className="bg-gray-50 p-4 rounded">
-          <p><strong>Total Amount:</strong> KES {calculatePrice()}</p>
-          <p><strong>Payment Methods:</strong> M-Pesa, Visa, MasterCard</p>
-        </div>
-      </div>
-    </Modal>
-  )
-
   return (
-    <div className="max-w-6xl mx-auto p-3 sm:p-6">
-      {bookingsLoading && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-blue-800 text-sm">
-            📋 Loading existing bookings to show availability...
-          </p>
-        </div>
-      )}
-      <div className="text-center mb-8 sm:mb-12">
-        <h2 className="h2 mb-2 sm:mb-4 px-4">Reserve Your Slot</h2>
-        <p className="text-base text-gray-600 max-w-2xl mx-auto px-4">
-          Follow these simple steps to reserve our premium football field
-        </p>
-        <div className="w-16 sm:w-24 h-1 bg-gradient-to-r from-[#3A8726FF] to-[#2d6b1f] mx-auto mt-3 sm:mt-4 rounded-full"></div>
-      </div>
-
-      {/* Progress Steps */}
-
-      {/* Step Content */}
-      <div className="space-y-4 sm:space-y-8 flex flex-col gap-6">
-        {/* Step 1: Date Selection */}
-        <Card className={`shadow-xl border-0 overflow-hidden transition-all duration-300 ${
-          getCurrentStep() === 0 ? 'ring-2 ring-[#3A8726FF] ring-opacity-50' : ''
-        } ${!selectedField ? 'opacity-50 pointer-events-none' : ''}`}>
-          <div className="bg-gradient-to-r from-[#3A8726FF] to-[#2d6b1f] p-4 rounded sm:p-6 text-white">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-xl sm:text-2xl font-bold">Select Date</h3>
-                  <p className="text-green-100 mt-1 text-sm sm:text-base">Choose your preferred booking date</p>
-                </div>
-              </div>
-              {selectedDate && (
-                <div className="text-left sm:text-right border border-white bg-opacity-10 rounded-lg p-2 sm:bg-transparent">
-                  <div className="text-xs sm:text-sm text-green-100">Selected</div>
-                  <div className="font-bold text-sm sm:text-base">{selectedDate.format('MMM D, YYYY')}</div>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="p-4 sm:p-6">
-            {!selectedDate && (
-              <div className="mb-4 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-blue-800 text-xs sm:text-sm">
-                  📅 <strong>Step 1:</strong> Select a date from the calendar below. You can book up to 30 days in advance.
-                </p>
-              </div>
-            )}
-            <div className="calendar-mobile-wrapper">
-              <Calendar
-                fullscreen={false}
-                disabledDate={disabledDate}
-                onSelect={handleDateSelect}
-                value={selectedDate || undefined}
-                className="border-0 mobile-calendar"
-              />
-            </div>
-            {selectedDate && (
-              <div className="mt-4 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800 text-xs sm:text-sm">
-                  ✅ Great! You've selected <strong>{selectedDate.format('MMMM D, YYYY')}</strong>. Now choose your time and duration below.
-                </p>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Step 2: Time & Duration Selection */}
-        <Card 
-          id="time-selection"
-          className={`shadow-xl border-0 overflow-hidden transition-all duration-300 ${
-            getCurrentStep() === 1 ? 'ring-2 ring-blue-500 ring-opacity-50' : ''
-          } ${!selectedDate ? 'opacity-50 pointer-events-none' : ''}`}
-        >
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded p-4 sm:p-6 text-white">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-xl sm:text-2xl font-bold">Time & Duration</h3>
-                  <p className="text-blue-100 mt-1 text-sm sm:text-base">Select your time slot and duration</p>
-                </div>
-              </div>
-              {selectedTime && (
-                <div className="text-left sm:text-right border border-white bg-opacity-10 rounded-lg p-2 sm:bg-transparent">
-                  <div className="text-xs sm:text-sm text-blue-100">Selected</div>
-                  <div className="font-bold text-sm sm:text-base">{selectedTime} ({duration}h)</div>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="p-4 sm:p-6">
-            {selectedDate && !selectedTime && (
-              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-blue-800 text-xs sm:text-sm">
-                  ⏰ <strong>Step 2:</strong> First choose how long you'd like to book the field, then select an available time slot.
-                </p>
-              </div>
-            )}
-            
-            {/* Duration Selection */}
-            <div className="mb-6 sm:mb-8">
-              <h4 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4">Duration</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                {durations.map((dur) => (
-                  <button
-                    key={dur.value}
-                    onClick={() => setDuration(dur.value)}
-                    disabled={!selectedDate}
-                    className={`p-3 sm:p-4 rounded-xl border-2 transition-all duration-300 transform active:scale-95 sm:hover:scale-105 ${
-                      duration === dur.value
-                        ? 'border-[#3A8726FF] bg-gradient-to-br from-[#F5FBF4FF] to-white text-[#3A8726FF] shadow-lg'
-                        : 'border-gray-200 hover:border-[#3A8726FF] text-gray-700 hover:shadow-md'
-                    } ${!selectedDate ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <div className="font-bold text-base sm:text-lg">{dur.label}</div>
-                    <div className="text-xs sm:text-sm opacity-75">×{dur.multiplier} price</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Time Slots */}
+    <section className="w-full bg-[#f7faf6]">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+        <div className="mb-6 overflow-hidden rounded-lg bg-[#193d13] text-white shadow-xl">
+          <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[1fr_360px] lg:items-end">
             <div>
-              <h4 className="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4">Available Time Slots</h4>
-              {timeSlotsLoading ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-600">Loading available time slots...</p>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-1 text-xs font-semibold text-[#f6d85b]">
+                <CalendarOutlined />
+                Field Booking
+              </div>
+              <h1 className="text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
+                Reserve your Arena 03 slot
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/80 sm:text-base">
+                Pick a field, choose an available same-day or future slot, and continue to secure payment.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 rounded-lg border border-white/15 bg-white/8 p-3 text-center">
+              <div>
+                <p className="text-lg font-bold text-[#f6d85b]">{fields.length}</p>
+                <p className="text-[11px] uppercase tracking-wide text-white/70">Fields</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-[#f6d85b]">30m</p>
+                <p className="text-[11px] uppercase tracking-wide text-white/70">Slots</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-[#f6d85b]">1hr</p>
+                <p className="text-[11px] uppercase tracking-wide text-white/70">Notice</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {(fieldsLoading || bookingsLoading) && (
+          <div className="mb-5 flex items-center gap-3 rounded-lg border border-emerald-100 bg-white p-4 text-sm text-gray-700 shadow-sm">
+            <Spin size="small" />
+            Loading fields and live availability...
+          </div>
+        )}
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+          <div className="space-y-5">
+            <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#3A8726]">Field</p>
+                  <h2 className="text-lg font-bold text-gray-950">Choose your pitch</h2>
                 </div>
-              ) : timeSlots.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-600">No time slots available for the selected date</p>
+                <EnvironmentOutlined className="text-xl text-[#3A8726]" />
+              </div>
+
+              {fields.length === 0 && !fieldsLoading ? (
+                <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
+                  No fields are currently available.
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 max-h-60 sm:max-h-80 overflow-y-auto custom-scrollbar">
-                  {timeSlots.map((slot) => (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {fields.map((field) => {
+                    const isSelected = field._id === selectedField
+                    const disabled = field.status !== 'active' || !field.isAvailable
+
+                    return (
+                      <button
+                        key={field._id}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => {
+                          setSelectedField(field._id)
+                          setSelectedTime(null)
+                        }}
+                        className={`min-h-[132px] rounded-lg border p-4 text-left transition ${
+                          isSelected
+                            ? 'border-[#3A8726] bg-[#f1faef] shadow-md'
+                            : 'border-gray-200 bg-white hover:border-[#3A8726] hover:shadow-sm'
+                        } ${disabled ? 'cursor-not-allowed opacity-45' : ''}`}
+                      >
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="text-base font-bold text-gray-950">{field.name}</h3>
+                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-600">{field.description}</p>
+                          </div>
+                          {isSelected && <CheckCircleOutlined className="text-lg text-[#3A8726]" />}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="rounded-full bg-gray-100 px-2.5 py-1 font-semibold text-gray-700">
+                            {formatMoney(field.price_per_hour)}/hr
+                          </span>
+                          <span className={`rounded-full px-2.5 py-1 font-semibold ${
+                            field.status === 'active' && field.isAvailable
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {field.status === 'active' && field.isAvailable ? 'Available' : field.status}
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(360px,1fr)]">
+              <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#3A8726]">Date</p>
+                    <h2 className="text-lg font-bold text-gray-950">
+                      {selectedDate ? selectedDate.format('ddd, MMM D') : 'Select date'}
+                    </h2>
+                  </div>
+                  <CalendarOutlined className="text-xl text-[#3A8726]" />
+                </div>
+                <div className="booking-calendar-shell">
+                  <Calendar
+                    fullscreen={false}
+                    disabledDate={disabledDate}
+                    onSelect={handleDateSelect}
+                    value={selectedDate || undefined}
+                    className="booking-calendar"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#3A8726]">Time</p>
+                    <h2 className="text-lg font-bold text-gray-950">Available slots</h2>
+                  </div>
+                  <Select
+                    value={duration}
+                    onChange={(value) => setDuration(value)}
+                    className="w-full sm:w-40"
+                    options={durations.map((item) => ({
+                      value: item.value,
+                      label: item.fullLabel,
+                    }))}
+                  />
+                </div>
+
+                <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  {durations.map((item) => (
                     <button
-                      key={slot.time}
-                      onClick={() => slot.available ? handleTimeSelect(slot.time) : null}
-                      disabled={!slot.available || !selectedDate}
-                      className={`p-3 sm:p-4 rounded-xl border-2 transition-all duration-300 transform active:scale-95 sm:hover:scale-105 ${
-                        !slot.available
-                          ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-50'
-                          : selectedTime === slot.time
-                          ? 'border-[#3A8726FF] bg-gradient-to-br from-[#F5FBF4FF] to-white text-[#3A8726FF] shadow-lg'
-                          : 'border-gray-200 hover:border-[#3A8726FF] text-gray-700 hover:shadow-md bg-white'
-                      } ${!selectedDate ? 'opacity-30' : ''}`}
+                      key={item.value}
+                      type="button"
+                      onClick={() => setDuration(item.value)}
+                      className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                        duration === item.value
+                          ? 'border-[#3A8726] bg-[#3A8726] text-white shadow-sm'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-[#3A8726]'
+                      }`}
                     >
-                      <div className="font-bold text-sm sm:text-lg">{slot.time}</div>
-                      <div className="text-xs sm:text-sm">
-                        {slot.available ? `KES ${slot.price}/hr` : 'Booked'}
-                      </div>
+                      {item.label}
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
-            
-            {selectedTime && (
-              <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800 text-xs sm:text-sm">
-                  ✅ Perfect! You've selected <strong>{selectedTime}</strong> for <strong>{formatDuration(duration)}</strong>. Review your booking below.
-                </p>
-              </div>
-            )}
-          </div>
-        </Card>
 
-        {/* Step 3: Booking Summary */}
-        {(selectedDate && selectedTime) && (
-          <Card 
-            id="booking-summary"
-            className={`shadow-xl border-0 overflow-hidden transition-all duration-300 ${
-              getCurrentStep() === 2 ? 'ring-2 ring-orange-500 ring-opacity-50' : ''
-            }`}
-          >
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded p-4 sm:p-6 text-white">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="min-w-0">
-                    <h3 className="text-xl sm:text-2xl font-bold">Review & Confirm</h3>
-                    <p className="text-orange-100 mt-1 text-sm sm:text-base">Review your booking details before confirming</p>
+                {!selectedDate || !selectedFieldData ? (
+                  <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
+                    Select a field and date to see times.
                   </div>
-                </div>
-                <div className="text-left sm:text-right border border-white bg-opacity-10 rounded-lg p-2 sm:bg-transparent">
-                  <div className="text-xs sm:text-sm text-orange-100">Total</div>
-                  <div className="text-xl sm:text-2xl font-bold">KES {calculatePrice()}</div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="p-4 sm:p-8">
-              <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                <p className="text-orange-800 text-xs sm:text-sm">
-                  📋 <strong>Step 3:</strong> Review all details below and click "Confirm Booking" to proceed to payment.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-6 sm:gap-8">
-                {/* Booking Details - Full Width on Mobile */}
-                <div className="w-full">
-                  <div className="bg-gray-50 rounded-xl p-4 sm:p-6">
-                    <h4 className="text-base sm:text-lg font-bold text-gray-800 mb-3 sm:mb-4">Booking Details</h4>
-                    <div className="space-y-3 sm:space-y-4">
-                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span className="text-gray-600 font-medium text-sm sm:text-base">📅 Date:</span>
-                        <span className="font-bold text-sm sm:text-lg text-gray-800">
-                          {selectedDate.format('MMM D, YYYY')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span className="text-gray-600 font-medium text-sm sm:text-base">⏰ Time:</span>
-                        <span className="font-bold text-sm sm:text-lg text-gray-800">
-                          {selectedTime}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span className="text-gray-600 font-medium text-sm sm:text-base">⏱️ Duration:</span>
-                        <span className="font-bold text-sm sm:text-lg text-gray-800">
-                          {formatDuration(duration)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                        <span className="text-gray-600 font-medium text-sm sm:text-base">💰 Base Price:</span>
-                        <span className="font-bold text-sm sm:text-lg text-gray-800">
-                          KES {timeSlots.find(slot => slot.time === selectedTime)?.price}/hr
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center py-3 sm:py-4 bg-gradient-to-r from-[#3A8726FF] to-[#2d6b1f] text-white rounded-lg px-3 sm:px-4">
-                        <span className="font-bold text-sm sm:text-lg">💳 Total Price:</span>
-                        <span className="font-bold text-lg sm:text-2xl">KES {calculatePrice()}</span>
-                      </div>
-                    </div>
+                ) : timeSlots.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500">
+                    No slots are available for this date.
                   </div>
-                </div>
-                
-                {/* Booking Action - Full Width on Mobile */}
-                <div className="w-full">
-                  <div className="text-center space-y-4 sm:space-y-6">
-                    <div>
-                      <h4 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 sm:mb-3">Ready to book?</h4>
-                      <p className="text-gray-600 mb-3 sm:mb-4 text-sm sm:text-base">Secure your field reservation now</p>
-                      <div className="text-xs sm:text-sm text-gray-500 space-y-1">
-                        <p>✅ Secure payment processing</p>
-                        <p>✅ Instant confirmation email</p>
-                        <p>✅ 24-hour cancellation policy</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-center gap-3">
-                      <Button
-                        type="primary"
-                        size="large"
-                        loading={loading}
-                        onClick={handleBooking}
-                        className="bg-gradient-to-r from-[#3A8726FF] to-[#2d6b1f] border-none hover:from-[#2d6b1f] hover:to-[#245a19] px-6 sm:px-12 py-6 sm:py-8 h-auto text-lg sm:text-xl font-bold rounded-xl shadow-lg transform transition-all duration-300 active:scale-95 sm:hover:scale-105 w-full sm:w-auto"
+                ) : (
+                  <div className="grid max-h-[390px] grid-cols-2 gap-2 overflow-y-auto pr-1 custom-scrollbar sm:grid-cols-3">
+                    {timeSlots.map((slot) => (
+                      <button
+                        key={slot.time}
+                        type="button"
+                        disabled={!slot.available}
+                        onClick={() => setSelectedTime(slot.time)}
+                        className={`min-h-[74px] rounded-lg border p-3 text-left transition ${
+                          selectedTime === slot.time
+                            ? 'border-[#3A8726] bg-[#f1faef] shadow-md'
+                            : slot.available
+                            ? 'border-gray-200 bg-white hover:border-[#3A8726] hover:shadow-sm'
+                            : 'cursor-not-allowed border-gray-100 bg-gray-50 text-gray-400'
+                        }`}
                       >
-                        {loading ? (
-                          <span className="text-sm sm:text-lg">
-                            <span className="animate-spin inline-block mr-2">⏳</span>
-                            Processing Payment...
-                          </span>
-                        ) : (
-                          <span className="text-sm sm:text-lg">
-                            Confirm Booking - KES {calculatePrice()}
-                          </span>
-                        )}
-                      </Button>
-                      {!loading && (
-                        <p className="text-xs text-gray-400 text-center max-w-xs px-4">
-                          By clicking "Confirm Booking", you agree to our terms and conditions
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold">{slot.time}</span>
+                          {selectedTime === slot.time && <CheckCircleOutlined className="text-[#3A8726]" />}
+                        </div>
+                        <p className="mt-1 text-xs">
+                          {slot.available ? `${formatMoney(slot.price)}/hr` : slot.reason}
                         </p>
-                      )}
-                    </div>
+                      </button>
+                    ))}
                   </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#3A8726]">Team</p>
+                  <h2 className="text-lg font-bold text-gray-950">Optional booking name</h2>
+                </div>
+                <TeamOutlined className="text-xl text-[#3A8726]" />
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-gray-800">Team name</span>
+                  <input
+                    value={teamName}
+                    onChange={(event) => setTeamName(event.target.value)}
+                    placeholder="Optional, e.g. Kilifi Stars"
+                    className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-[#3A8726] focus:ring-2 focus:ring-[#3A8726]/10"
+                  />
+                </label>
+                <div className="rounded-lg bg-[#f7faf6] p-4 text-sm leading-6 text-gray-600">
+                  Your account is used as the booking client. The team name is only needed when you want the reservation labeled for a group.
                 </div>
               </div>
             </div>
-          </Card>
-        )}
-        
-        {/* Payment Modal */}
-        {renderPaymentModal()}
+          </div>
+
+          <aside className="lg:sticky lg:top-6">
+            <div className="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-lg">
+              <div className="bg-[#193d13] p-5 text-white">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#f6d85b]">Summary</p>
+                <h2 className="mt-1 text-2xl font-bold">{formatMoney(calculatePrice())}</h2>
+                <p className="mt-1 text-sm text-white/70">Pay securely after confirmation</p>
+              </div>
+
+              <div className="space-y-4 p-5">
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="text-gray-500">Field</span>
+                    <span className="text-right font-semibold text-gray-950">{selectedFieldData?.name || 'Not selected'}</span>
+                  </div>
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="text-gray-500">Date</span>
+                    <span className="text-right font-semibold text-gray-950">{selectedDate?.format('MMM D, YYYY') || 'Not selected'}</span>
+                  </div>
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="text-gray-500">Time</span>
+                    <span className="text-right font-semibold text-gray-950">{selectedTime || 'Not selected'}</span>
+                  </div>
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="text-gray-500">Duration</span>
+                    <span className="text-right font-semibold text-gray-950">{selectedDuration.fullLabel}</span>
+                  </div>
+                  {teamName.trim() && (
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="text-gray-500">Team</span>
+                      <span className="text-right font-semibold text-gray-950">{teamName.trim()}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-lg bg-gray-50 p-4">
+                  <div className="flex items-center gap-3 text-sm text-gray-700">
+                    <ClockCircleOutlined className="text-[#3A8726]" />
+                    <span>Same-day booking uses Kenyan time and opens for slots at least one hour from now.</span>
+                  </div>
+                  <div className="mt-3 flex items-center gap-3 text-sm text-gray-700">
+                    <CreditCardOutlined className="text-[#3A8726]" />
+                    <span>{selectedSlot ? `${formatMoney(selectedSlot.price)}/hr base rate` : 'Select a slot to see rate'}</span>
+                  </div>
+                </div>
+
+                <Button
+                  type="primary"
+                  size="large"
+                  block
+                  loading={loading}
+                  disabled={!canConfirm}
+                  onClick={handleBooking}
+                  className="!h-12 !rounded-lg !border-none !bg-[#3A8726] !text-base !font-bold hover:!bg-[#2d6b1f]"
+                >
+                  {loading ? 'Preparing payment...' : `Confirm ${formatMoney(calculatePrice())}`}
+                </Button>
+
+                <p className="text-center text-xs leading-5 text-gray-500">
+                  Confirmation redirects you to Paystack to complete payment.
+                </p>
+              </div>
+            </div>
+          </aside>
+        </div>
       </div>
-    </div>
+    </section>
   )
 }
-
-

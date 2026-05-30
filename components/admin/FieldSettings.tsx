@@ -4,11 +4,13 @@ import { adminAPI } from '@/utils/api'
 import { FieldSettingsData } from '@/types'
 
 interface FieldSettingsProps {
+  initialData?: FieldSettingsData
   onSave?: (data: FieldSettingsData) => void
+  onError?: (message: string) => void
   isLoading?: boolean
 }
 
-const FieldSettings: React.FC<FieldSettingsProps> = ({ onSave, isLoading: externalLoading }) => {
+const FieldSettings: React.FC<FieldSettingsProps> = ({ initialData, onSave, onError, isLoading: externalLoading }) => {
   const [formData, setFormData] = useState<FieldSettingsData>({
     defaultBookingDuration: 1,
     maxAdvanceBookingDays: 30,
@@ -22,8 +24,14 @@ const FieldSettings: React.FC<FieldSettingsProps> = ({ onSave, isLoading: extern
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
+    if (initialData) {
+      setFormData(initialData)
+      setLoading(false)
+      return
+    }
+
     loadSettings()
-  }, [])
+  }, [initialData])
 
   const loadSettings = async () => {
     try {
@@ -34,6 +42,7 @@ const FieldSettings: React.FC<FieldSettingsProps> = ({ onSave, isLoading: extern
       }
     } catch (error) {
       console.error('Error loading field settings:', error)
+      onError?.('Failed to load field settings')
     } finally {
       setLoading(false)
     }
@@ -77,6 +86,7 @@ const FieldSettings: React.FC<FieldSettingsProps> = ({ onSave, isLoading: extern
       }
     } catch (error) {
       console.error('Error saving field settings:', error)
+      onError?.('Failed to save field settings')
     } finally {
       setSaving(false)
     }

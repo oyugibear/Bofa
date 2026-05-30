@@ -154,6 +154,36 @@ export default function TeamDetailPage() {
     })
   }
 
+    const getCaptainId = () => {
+        if (!team?.captain) return ''
+        return typeof team.captain === 'string' ? team.captain : team.captain._id
+    }
+
+    const handleSetCaptain = async (member: UserType) => {
+        if (!team?._id || !member?._id) return
+
+        try {
+            const currentMemberIds = (team.members || [])
+                .map((teamMember: any) => teamMember?._id || teamMember)
+                .filter(Boolean)
+            const members = currentMemberIds.includes(member._id)
+                ? currentMemberIds
+                : [...currentMemberIds, member._id]
+
+            await teamsAPI.edit(team._id, {
+                members: members as any,
+                captain: member._id as any,
+            })
+            await userAPI.update(member._id, { team_id: team._id })
+
+            toast.success(`${member.first_name} ${member.second_name} is now captain`)
+            handleRefresh()
+        } catch (error) {
+            console.error('Error setting team captain:', error)
+            toast.error('Failed to update team captain')
+        }
+    }
+
     // Mock data for demonstration - replace with actual data from API
     const mockMatches: MatchTypes[] = [
         {
@@ -211,9 +241,24 @@ export default function TeamDetailPage() {
         title: 'Role',
         key: 'role',
         render: (member: UserType) => (
-            <Tag color={member._id === team?.captain?._id ? 'gold' : 'blue'}>
-            {member._id === team?.captain?._id ? 'Captain' : 'Player'}
+            <Tag color={member._id === getCaptainId() ? 'gold' : 'blue'}>
+            {member._id === getCaptainId() ? 'Captain' : 'Player'}
             </Tag>
+        ),
+        },
+        {
+        title: 'Actions',
+        key: 'actions',
+        render: (member: UserType) => (
+            <Button
+            size="small"
+            type={member._id === getCaptainId() ? 'default' : 'primary'}
+            disabled={member._id === getCaptainId()}
+            className={member._id === getCaptainId() ? '' : 'bg-[#3A8726FF]'}
+            onClick={() => handleSetCaptain(member)}
+            >
+            {member._id === getCaptainId() ? 'Captain' : 'Make Captain'}
+            </Button>
         ),
         },
     ]
@@ -234,18 +279,21 @@ export default function TeamDetailPage() {
         title: 'Home Team',
         dataIndex: 'homeTeam',
         key: 'homeTeam',
-        render: (homeTeam: TeamTypes) => homeTeam.name,
+        render: (homeTeam: TeamTypes | string) => typeof homeTeam === 'string' ? homeTeam : homeTeam?.name,
         },
         {
         title: 'Away Team',
         dataIndex: 'awayTeam',
         key: 'awayTeam',
-        render: (awayTeam: TeamTypes) => awayTeam.name,
+        render: (awayTeam: TeamTypes | string) => typeof awayTeam === 'string' ? awayTeam : awayTeam?.name,
         },
         {
         title: 'Venue',
-        dataIndex: 'venue',
         key: 'venue',
+        render: (match: MatchTypes) => {
+            const fieldName = typeof match.field === 'string' ? '' : match.field?.name
+            return fieldName || match.venue || 'N/A'
+        },
         },
         {
         title: 'Status',

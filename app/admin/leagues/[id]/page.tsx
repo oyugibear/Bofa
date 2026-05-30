@@ -257,6 +257,18 @@ export default function LeagueDetailPage() {
     ]
 
     const matchColumns = [
+        {
+        title: 'Date',
+        dataIndex: 'date',
+        key: 'date',
+        render: (date: string) => date ? new Date(date).toLocaleDateString() : 'N/A',
+        },
+        {
+        title: 'Time',
+        dataIndex: 'time',
+        key: 'time',
+        render: (time: string) => time || 'N/A',
+        },
        
         {
         title: 'Home Team',
@@ -269,6 +281,14 @@ export default function LeagueDetailPage() {
         dataIndex: 'awayTeam',
         key: 'awayTeam',
         render: (awayTeam: TeamTypes) => awayTeam?.name,
+        },
+        {
+        title: 'Venue',
+        key: 'venue',
+        render: (match: MatchTypes) => {
+            const fieldName = typeof match.field === 'string' ? '' : match.field?.name
+            return fieldName || match.venue || 'N/A'
+        },
         },
         {
         title: 'Status',

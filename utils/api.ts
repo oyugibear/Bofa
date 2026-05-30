@@ -14,12 +14,15 @@ interface ApiResponse<T = any> {
 interface BookingData {
     date_requested: string;
     time: string;
-    duration: number;
+    duration: string | number;
     field: string;
-    teamName?: string;
+    team_name?: string;
     client: string;
     total_price: number;
     status?: string;
+    booking_type?: 'customer_booking' | 'admin_booking' | 'manager_scheduled_match';
+    payment_required?: boolean;
+    payment_waived?: boolean;
 }
 
 const getAuthHeaders = (): Record<string, string> => {
@@ -80,7 +83,8 @@ export const apiCall = async <T = any>(
         }
 
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${data.message || 'Request failed'}`);
+            const errorMessage = data.message || data.error || data.errors?.[0]?.message || 'Request failed';
+            throw new Error(`HTTP ${response.status}: ${errorMessage}`);
         }
 
         return data;
@@ -329,6 +333,13 @@ export const teamsAPI = {
 
     getById: (id: string) => apiCall(`/teams/${id}`),
 
+    getManagedTeam: () => apiCall('/teams/managed/me'),
+
+    inviteMember: (teamId: string, email: string) => apiCall(`/teams/${teamId}/invite`, {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+    }),
+
     edit: (id: string, data: Partial<TeamTypes>) => apiCall(`/teams/edit/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
@@ -361,7 +372,17 @@ export const leaguesAPI = {
         method: 'DELETE',
     }),
 
-    generateMatches: (data: { leagueId: string; numberOfMatches: number; startDate?: string; venue: string; postedBy?: string }) => apiCall('/leagues/generateMatches', {
+    generateMatches: (data: {
+        leagueId: string;
+        numberOfMatches: number;
+        startDate?: string;
+        startTime?: string;
+        venue?: string;
+        field?: string;
+        fieldId?: string;
+        postedBy?: string;
+        intervalMinutes?: number;
+    }) => apiCall('/leagues/generateMatches', {
         method: 'PUT',
         body: JSON.stringify(data),
     }),
@@ -394,6 +415,11 @@ export const matchesAPI = {
     edit: (id: string, data: Partial<MatchTypes>) => apiCall(`/matches/edit/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
+    }),
+
+    confirmParticipation: (id: string, status: 'confirmed' | 'declined') => apiCall(`/matches/${id}/participation`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
     }),
 
     delete: (id: string) => apiCall(`/matches/${id}`, {
@@ -530,6 +556,11 @@ export const adminAPI = {
     // Security Settings
     getSecuritySettings: () => apiCall('/admin/settings/security'),
     updateSecuritySettings: (data: any) => apiCall('/admin/settings/security', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+
+    changePassword: (data: { currentPassword: string; newPassword: string }) => apiCall('/auth/change-password', {
         method: 'PUT',
         body: JSON.stringify(data),
     }),

@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 // Hook for accessing user data
 export function useUser() {
   const { user, isAuthenticated, isLoading, updateUser } = useAuth()
+  const isAdminRole = user?.role === 'Admin' || user?.role === 'Coach' || user?.role === 'SubAdmin'
   
   return {
     user,
@@ -14,7 +15,7 @@ export function useUser() {
     // Computed properties for easy access
     fullName: user ? `${user.first_name} ${user.second_name}` : '',
     displayName: user?.first_name || '',
-    isAdmin: user?.role === 'Admin',
+    isAdmin: isAdminRole,
     userId: user?._id,
     email: user?.email,
     phone: user?.phone_number,
@@ -27,16 +28,17 @@ export function useUser() {
 // Hook for checking specific permissions
 export function usePermissions() {
   const { user } = useAuth()
+  const canManageAdminSections = user?.role === 'Admin' || user?.role === 'Coach' || user?.role === 'SubAdmin'
   
   return {
-    canAccessAdmin: user?.role === 'Admin',
+    canAccessAdmin: canManageAdminSections,
     canBookFields: !!user, // Any authenticated user can book
     canViewBookings: !!user,
     canEditProfile: !!user,
     canDeleteBooking: user?.role === 'Admin' || user?.role === 'Client',
-    canManageUsers: user?.role === 'Admin',
-    canManageServices: user?.role === 'Admin',
-    canViewReports: user?.role === 'Admin',
+    canManageUsers: canManageAdminSections,
+    canManageServices: canManageAdminSections,
+    canViewReports: canManageAdminSections,
   }
 }
 

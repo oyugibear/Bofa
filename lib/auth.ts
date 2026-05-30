@@ -19,6 +19,7 @@ export interface User {
   phone_number: string
   date_of_birth: string
   role: string
+  team_id?: string
   therapy_notes?: Array<{
     note: string
     createdAt: string
@@ -74,6 +75,7 @@ export const authAPI = {
     date_of_birth: string
     password: string
     role: string
+    teamInviteToken?: string
   }): Promise<ApiResponse<RegisterResponse>> {
     try {
       console.warn('🚀 Sending registration request to:', `${API_BASE_URL}/auth/register`)

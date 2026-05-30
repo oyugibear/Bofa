@@ -4,11 +4,13 @@ import { adminAPI } from '@/utils/api'
 import { GeneralSettings as GeneralSettingsType } from '@/types'
 
 interface GeneralSettingsProps {
+  initialData?: GeneralSettingsType
   onSave?: (data: GeneralSettingsType) => void
+  onError?: (message: string) => void
   isLoading?: boolean
 }
 
-const GeneralSettings: React.FC<GeneralSettingsProps> = ({ onSave, isLoading: externalLoading }) => {
+const GeneralSettings: React.FC<GeneralSettingsProps> = ({ initialData, onSave, onError, isLoading: externalLoading }) => {
   const [formData, setFormData] = useState<GeneralSettingsType>({
     facilityName: '',
     contactEmail: '',
@@ -24,8 +26,14 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({ onSave, isLoading: ex
 
   // Load settings on component mount
   useEffect(() => {
+    if (initialData) {
+      setFormData(initialData)
+      setLoading(false)
+      return
+    }
+
     loadSettings()
-  }, [])
+  }, [initialData])
 
   const loadSettings = async () => {
     try {
@@ -36,6 +44,7 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({ onSave, isLoading: ex
       }
     } catch (error) {
       console.error('Error loading general settings:', error)
+      onError?.('Failed to load general settings')
     } finally {
       setLoading(false)
     }
@@ -90,6 +99,7 @@ const GeneralSettings: React.FC<GeneralSettingsProps> = ({ onSave, isLoading: ex
       }
     } catch (error) {
       console.error('Error saving general settings:', error)
+      onError?.('Failed to save general settings')
     } finally {
       setSaving(false)
     }

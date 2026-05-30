@@ -11,8 +11,8 @@ import {
 import Link from 'next/link'
 import { Spin, message, Dropdown, Menu } from 'antd'
 import SideMenu from '../../../components/admin/SideMenu'
-import { Booking, Payment, BookingDetails } from '@/types'
-import { bookingAPI, paymentAPI } from '@/utils/api'
+import { Booking, Payment, BookingDetails, Field } from '@/types'
+import { bookingAPI, paymentAPI, fieldAPI } from '@/utils/api'
 import { filterBookingsByPeriod, formatBookingsForExport } from '@/utils/csvExport'
 import { useCSVExport } from '@/hooks/useCSVExport'
 import StatCard from '@/components/admin/StatCard'
@@ -31,6 +31,7 @@ export default function BookingsPage() {
 
     const [bookings, setBookings] = useState<BookingDetails[]>([])
     const [payments, setPayments] = useState<Payment[]>([])
+    const [fields, setFields] = useState<Field[]>([])
     const [loading, setLoading] = useState(true)
     const [refresh, setRefresh] = useState(false)
     const [isNewBookingModalOpen, setIsNewBookingModalOpen] = useState(false)
@@ -46,11 +47,15 @@ export default function BookingsPage() {
         const fetchBookings = async () => {
         setLoading(true)
         try {
-            const response = await bookingAPI.getAll()
-            const paymentsResponse = await paymentAPI.getAll()
+            const [response, paymentsResponse, fieldsResponse] = await Promise.all([
+                bookingAPI.getAll(),
+                paymentAPI.getAll(),
+                fieldAPI.getAll()
+            ])
             console.log("Bookings fetched:", response.data)
             setBookings(response.data as BookingDetails[])
             setPayments(paymentsResponse.data)
+            setFields(fieldsResponse.data || [])
         } catch (error) {
             console.error('Error fetching bookings:', error)
         } finally {
@@ -265,6 +270,14 @@ export default function BookingsPage() {
                 </div>
 
                 {/* Enhanced Bookings Table Section */}
+                <div className="mb-8">
+                    <div className="mb-4">
+                        <h2 className="text-lg font-semibold text-gray-900">Calendar Availability</h2>
+                        <p className="text-sm text-gray-600">Quickly scan open slots and paid bookings by date</p>
+                    </div>
+                    <BookingCalendar bookings={bookings} fields={fields} />
+                </div>
+
                 <div className="mb-6">
                     <div className="mb-4">
                         <h2 className="text-lg font-semibold text-gray-900">All Bookings</h2>

@@ -4,10 +4,11 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { message } from 'antd'
-import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, UserAddOutlined, GoogleOutlined, FacebookOutlined } from '@ant-design/icons'
-import { FormInput, FormButton, FormSelect } from '../../../components/constants'
-import { authAPI, authStorage } from '../../../lib/auth'
+import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, UserAddOutlined } from '@ant-design/icons'
+import { FormInput, FormButton } from '../../../components/constants'
+import { authAPI } from '../../../lib/auth'
 import { isAuthenticated } from '../../../lib/utils'
+import { useAuth } from '../../../contexts/AuthContext'
 
 interface RegisterForm {
   first_name: string
@@ -31,8 +32,79 @@ interface FormErrors {
   role?: string
 }
 
+const countryCodes = [
+  { code: '+254', country: 'Kenya', label: 'KE +254' },
+  { code: '+255', country: 'Tanzania', label: 'TZ +255' },
+  { code: '+256', country: 'Uganda', label: 'UG +256' },
+  { code: '+250', country: 'Rwanda', label: 'RW +250' },
+  { code: '+251', country: 'Ethiopia', label: 'ET +251' },
+  { code: '+27', country: 'South Africa', label: 'ZA +27' },
+  { code: '+234', country: 'Nigeria', label: 'NG +234' },
+  { code: '+233', country: 'Ghana', label: 'GH +233' },
+  { code: '+1', country: 'United States', label: 'US +1' },
+  { code: '+44', country: 'United Kingdom', label: 'UK +44' },
+]
+
+const stripControlCharacters = (value: string) => value.replace(/[\u0000-\u001F\u007F]/g, '')
+
+const sanitizeName = (value: string) =>
+  stripControlCharacters(value)
+    .replace(/[<>]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const sanitizeNameInput = (value: string) =>
+  stripControlCharacters(value)
+    .replace(/[<>]/g, '')
+    .replace(/\s{2,}/g, ' ')
+
+const sanitizeEmail = (value: string) =>
+  stripControlCharacters(value)
+    .replace(/[<>\s]/g, '')
+    .trim()
+    .toLowerCase()
+
+const sanitizePhoneInput = (value: string) =>
+  stripControlCharacters(value)
+    .replace(/[^\d\s()+-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+const sanitizeDate = (value: string) => value.replace(/[^\d-]/g, '').slice(0, 10)
+
+const normalizePhoneNumber = (phoneNumber: string, countryCode: string) => {
+  const dialCodeDigits = countryCode.replace(/\D/g, '')
+  const trimmedPhone = sanitizePhoneInput(phoneNumber)
+
+  if (trimmedPhone.startsWith('+')) {
+    const internationalDigits = trimmedPhone.replace(/\D/g, '')
+    return internationalDigits ? `+${internationalDigits}` : ''
+  }
+
+  let localDigits = trimmedPhone.replace(/\D/g, '')
+
+  if (localDigits.startsWith(dialCodeDigits) && localDigits.length > dialCodeDigits.length) {
+    return `+${localDigits}`
+  }
+
+  localDigits = localDigits.replace(/^0+/, '')
+  return localDigits ? `+${dialCodeDigits}${localDigits}` : ''
+}
+
+const sanitizeFormData = (data: RegisterForm): RegisterForm => ({
+  first_name: sanitizeName(data.first_name),
+  second_name: sanitizeName(data.second_name),
+  email: sanitizeEmail(data.email),
+  phone_number: sanitizePhoneInput(data.phone_number),
+  date_of_birth: sanitizeDate(data.date_of_birth),
+  password: stripControlCharacters(data.password),
+  confirmPassword: stripControlCharacters(data.confirmPassword),
+  role: data.role === 'Coach' ? 'Coach' : 'Client',
+})
+
 export default function RegisterPage() {
   const router = useRouter()
+  const { login: authLogin } = useAuth()
   const [formData, setFormData] = useState<RegisterForm>({
     first_name: '',
     second_name: '',
@@ -43,18 +115,35 @@ export default function RegisterPage() {
     confirmPassword: '',
     role: 'Client'
   })
+  const [countryCode, setCountryCode] = useState('+254')
   const [errors, setErrors] = useState<FormErrors>({})
   const [loading, setLoading] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [checking, setChecking] = useState(true)
+  const [teamInviteToken, setTeamInviteToken] = useState('')
   const [apiResponse, setApiResponse] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null)
 
   // Check if user is already logged in
   useEffect(() => {
     const checkAuthStatus = () => {
+      const params = new URLSearchParams(window.location.search)
+      const inviteToken = params.get('teamInvite') || ''
+      const invitedEmail = params.get('email') || ''
+
+      if (inviteToken) {
+        setTeamInviteToken(inviteToken)
+      }
+
+      if (invitedEmail) {
+        setFormData(prev => ({
+          ...prev,
+          email: sanitizeEmail(invitedEmail)
+        }))
+      }
+
       if (isAuthenticated()) {
         // User is already logged in, redirect to homepage
-        router.push('/')
+        router.push(inviteToken ? '/account' : '/')
         return
       }
       setChecking(false)
@@ -76,42 +165,42 @@ export default function RegisterPage() {
   }
 
 
-  const validateForm = (): boolean => {
+  const validateForm = (data: RegisterForm, normalizedPhoneNumber: string): boolean => {
     const newErrors: FormErrors = {}
 
-    if (!formData.first_name.trim()) {
+    if (!data.first_name) {
       newErrors.first_name = 'First name is required'
     }
 
-    if (!formData.second_name.trim()) {
+    if (!data.second_name) {
       newErrors.second_name = 'Last name is required'
     }
 
-    if (!formData.email) {
+    if (!data.email) {
       newErrors.email = 'Email is required'
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
       newErrors.email = 'Please enter a valid email address'
     }
 
-    if (!formData.phone_number) {
+    if (!data.phone_number) {
       newErrors.phone_number= 'Phone number is required'
-    } else if (!/^\+?[\d\s-()]+$/.test(formData.phone_number)) {
+    } else if (!/^\+\d{8,15}$/.test(normalizedPhoneNumber)) {
       newErrors.phone_number= 'Please enter a valid phone number'
     }
 
-    if (!formData.date_of_birth) {
+    if (!data.date_of_birth) {
       newErrors.date_of_birth = 'Date of birth is required'
     }
 
-    if (!formData.password) {
+    if (!data.password) {
       newErrors.password = 'Password is required'
-    } else if (formData.password.length < 6) {
+    } else if (data.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters long'
     }
 
-    if (!formData.confirmPassword) {
+    if (!data.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password'
-    } else if (formData.password !== formData.confirmPassword) {
+    } else if (data.password !== data.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match'
     }
 
@@ -120,9 +209,23 @@ export default function RegisterPage() {
   }
 
   const handleInputChange = (field: keyof RegisterForm) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    const sanitizedValue =
+      field === 'first_name' || field === 'second_name'
+        ? sanitizeNameInput(value)
+        : field === 'email'
+        ? sanitizeEmail(value)
+        : field === 'phone_number'
+        ? sanitizePhoneInput(value)
+        : field === 'date_of_birth'
+        ? sanitizeDate(value)
+        : field === 'password' || field === 'confirmPassword'
+        ? stripControlCharacters(value)
+        : value
+
     setFormData(prev => ({
       ...prev,
-      [field]: e.target.value
+      [field]: sanitizedValue
     }))
     // Clear error when user starts typing
     if (errors[field]) {
@@ -141,15 +244,24 @@ export default function RegisterPage() {
       return
     }
 
-    if (!validateForm()) {
+    const sanitizedData = sanitizeFormData(formData)
+    const normalizedPhoneNumber = normalizePhoneNumber(sanitizedData.phone_number, countryCode)
+
+    setFormData(sanitizedData)
+
+    if (!validateForm(sanitizedData, normalizedPhoneNumber)) {
       return
     }
 
     setLoading(true)
-    setApiResponse({ type: 'info', message: 'Sending registration request...' })
+    setApiResponse({ type: 'info', message: 'Creating your account...' })
     
     try {
-      const { confirmPassword, ...userData } = formData
+      const { confirmPassword, ...userData } = {
+        ...sanitizedData,
+        phone_number: normalizedPhoneNumber,
+        ...(teamInviteToken && { teamInviteToken }),
+      }
       
       console.log('Sending registration data:', userData)
       
@@ -158,13 +270,19 @@ export default function RegisterPage() {
       console.log('Registration response:', response)
       
       if (response.status && response.data) {
-        setApiResponse({ type: 'success', message: `Registration successful!` })
-        message.success('Account created successfully! Please check your email for verification.')
+        setApiResponse({ type: 'info', message: 'Account created. Signing you in...' })
+        const loginResponse = await authAPI.login(userData.email, sanitizedData.password)
+
+        if (!loginResponse.user || !loginResponse.token) {
+          throw new Error('Account created, but automatic login failed. Please sign in manually.')
+        }
+
+        authLogin(loginResponse.user, loginResponse.token)
+        setApiResponse({ type: 'success', message: 'Registration successful. You are signed in.' })
+        message.success('Account created successfully!')
         
-        // Redirect to login page after successful registration
-        setTimeout(() => {
-          router.push('/auth/login')
-        }, 2000)
+        const destination = loginResponse.user.role === 'Admin' ? '/admin' : teamInviteToken ? '/account' : '/'
+        router.push(destination)
       } else {
         throw new Error(response.error || 'Registration failed')
       }
@@ -209,7 +327,9 @@ export default function RegisterPage() {
               <UserAddOutlined className="text-white text-3xl" />
             </div>
             <h1 className="text-3xl font-bold text-gray-800">Join Arena 03 Kilifi</h1>
-            <p className="text-gray-600 mt-2">Create your account and start your football journey</p>
+            <p className="text-gray-600 mt-2">
+              {teamInviteToken ? 'Create your account to join your team and confirm upcoming matches' : 'Create your account and start your football journey'}
+            </p>
           </div>
         </div>
 
@@ -263,16 +383,66 @@ export default function RegisterPage() {
               icon={<UserOutlined className="text-gray-400" />}
             />
 
-            <FormInput
-              label="Phone Number"
-              type="tel"
-              placeholder="Enter your phone number"
-              value={formData.phone_number}
-              onChange={handleInputChange('phone_number')}
-              error={errors.phone_number}
-              required
-              icon={<PhoneOutlined className="text-gray-400" />}
-            />
+            <div className="w-full">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number <span className="text-red-500 ml-1">*</span>
+              </label>
+              <div className="grid grid-cols-[132px_1fr] gap-2">
+                <div className="relative">
+                  <select
+                    value={countryCode}
+                    onChange={(event) => setCountryCode(event.target.value)}
+                    aria-label="Country code"
+                    className={`
+                      w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent outline-none transition-colors appearance-none bg-white cursor-pointer
+                      ${errors.phone_number ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'}
+                      hover:border-gray-400 focus:border-[#3A8726FF]
+                    `}
+                  >
+                    {countryCodes.map((country) => (
+                      <option key={`${country.country}-${country.code}`} value={country.code}>
+                        {country.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+                    <PhoneOutlined className="text-gray-400 text-lg" />
+                  </div>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel-national"
+                    placeholder="712 345 678"
+                    value={formData.phone_number}
+                    onChange={handleInputChange('phone_number')}
+                    className={`
+                      w-full px-4 py-3 pl-12 border rounded-lg focus:ring-2 focus:ring-[#3A8726FF] focus:border-transparent outline-none transition-colors bg-white
+                      ${errors.phone_number ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'}
+                      hover:border-gray-400 focus:border-[#3A8726FF]
+                    `}
+                  />
+                </div>
+              </div>
+              {!errors.phone_number && formData.phone_number && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Will be saved as {normalizePhoneNumber(formData.phone_number, countryCode)}
+                </p>
+              )}
+              {errors.phone_number && (
+                <p className="mt-1 text-sm text-red-500 flex items-center gap-1">
+                  <span>⚠️</span>
+                  {errors.phone_number}
+                </p>
+              )}
+            </div>
 
             <FormInput
               label="Password"

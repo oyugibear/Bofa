@@ -38,7 +38,7 @@ export const requireAdmin = (redirectTo: string = '/') => {
   }
   
   const user = getCurrentUser()
-  if (user?.role !== 'Admin') {
+  if (!['Admin', 'Coach', 'SubAdmin'].includes(user?.role || '')) {
     if (typeof window !== 'undefined') {
       window.location.href = redirectTo
     }
