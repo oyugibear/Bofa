@@ -1,6 +1,7 @@
 import React from 'react'
+import Link from 'next/link'
 
-export default function ServiceCard({ service, index }: { service: { icon: React.ReactNode, title: string, description: string, buttonText: string, highlight?: boolean }, index: number }) {
+export default function ServiceCard({ service, index }: { service: { icon: React.ReactNode, title: string, description: string, buttonText: string, href: string, highlight?: boolean }, index: number }) {
   return (
     <div 
             key={index}
@@ -30,9 +31,10 @@ export default function ServiceCard({ service, index }: { service: { icon: React
               {service.description}
             </p>
             
-            <button 
+            <Link 
+              href={service.href}
               className={`
-                w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 
+                block w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 
                 ${service.highlight 
                   ? 'bg-white text-[#3A8726FF] hover:bg-gray-100 hover:scale-105' 
                   : 'bg-[#3A8726FF] text-white hover:bg-[#2C6A1BFF] hover:scale-105'
@@ -40,7 +42,7 @@ export default function ServiceCard({ service, index }: { service: { icon: React
               `}
             >
               {service.buttonText}
-            </button>
+            </Link>
           </div>
   )
 }

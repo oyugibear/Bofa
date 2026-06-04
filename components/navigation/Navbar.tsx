@@ -105,6 +105,7 @@ export default function Navbar() {
             </div>
 
             <div className='flex flex-row items-center gap-4'>
+                <div className='hidden md:flex flex-row items-center gap-4'>
                 { isAuthenticated && user ? (
                   <>
                     <Dropdown menu={{ items }}>
@@ -123,6 +124,7 @@ export default function Navbar() {
                         </button>
                     </Link>
                 )}
+                </div>
                 
                 {/* Mobile Menu Button */}
                 <div className='md:hidden'>

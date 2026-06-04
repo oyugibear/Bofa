@@ -27,11 +27,12 @@ const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'frida
 const KENYA_TIME_ZONE = 'Africa/Nairobi'
 
 const durations = [
-  { value: 0.5, label: '30 min', fullLabel: '30 Minutes', multiplier: 0.5 },
-  { value: 1, label: '1 hour', fullLabel: '1 Hour', multiplier: 1 },
-  { value: 1.5, label: '1.5 hrs', fullLabel: '1.5 Hours', multiplier: 1.4 },
-  { value: 2, label: '2 hrs', fullLabel: '2 Hours', multiplier: 1.8 },
-  { value: 3, label: '3 hrs', fullLabel: '3 Hours', multiplier: 2.5 },
+  { value: 0.5, label: '30 min', fullLabel: '30 Minutes' },
+  { value: 1, label: '1 hour', fullLabel: '1 Hour' },
+  { value: 1.5, label: '1.5 hrs', fullLabel: '1.5 Hours' },
+  { value: 2, label: '2 hrs', fullLabel: '2 Hours' },
+  { value: 2.5, label: '2.5 hrs', fullLabel: '2.5 Hours' },
+  { value: 3, label: '3 hrs', fullLabel: '3 Hours' },
 ]
 
 const formatMoney = (amount: number) => `KES ${amount.toLocaleString()}`
@@ -292,7 +293,7 @@ export default function FieldBooking() {
     if (!selectedTime || !selectedFieldData || !selectedDate) return 0
 
     const basePrice = getSlotPrice(selectedDate, selectedTime, selectedFieldData)
-    return Math.round(basePrice * selectedDuration.multiplier)
+    return Math.round(basePrice * duration)
   }
 
   const selectedSlot = timeSlots.find((slot) => slot.time === selectedTime)
